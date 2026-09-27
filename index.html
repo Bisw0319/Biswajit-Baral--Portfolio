@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Biswajit Baral Profile Pic Favicon & Touch Icons -->
+    <link id="app-favicon" rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link id="app-apple-icon" rel="apple-touch-icon" sizes="180x180" href="/avatar.png" />
+    
+    <!-- Mobile Compatibility & Responsive Viewport -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="format-detection" content="telephone=no" />
+    <title>Biswajit Baral Portfolio</title>
+
+    <!-- ANTI-CLICKJACKING & UI REDRESSING DEFENSE -->
+    <style id="anti-clickjack">body{display:none !important;}</style>
+    <script>
+      /* Framebusting / Clickjacking Defense */
+      if (self === top) {
+        var antiClickjack = document.getElementById("anti-clickjack");
+        if (antiClickjack) antiClickjack.parentNode.removeChild(antiClickjack);
+      } else {
+        top.location = self.location;
+      }
+    </script>
+
+    <!-- ENTERPRISE SECURITY HEADERS & DEFENSES -->
+    <!-- 1. Content Security Policy (Strict HTTPS Enforcement, XSS, Injection Defense) -->
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests; default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: http://localhost:5173 /api/; media-src 'self' data: blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self' https://formsubmit.co;" />
+    
+    <!-- 2. MIME Sniffing Defense -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+
+    <!-- 3. Web Cache Poisoning & Cache Defense -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
+    <!-- 4. Privacy & Referrer Protection -->
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+
+    <!-- Google Fonts Preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-cyber-dark text-white font-inter overflow-x-hidden selection:bg-cyber-blue selection:text-black">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
