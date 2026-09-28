@@ -11,6 +11,22 @@ import {
   clearRateLimit
 } from './security';
 
+import {
+  isFirebaseConfigured,
+  saveCloudDoc,
+  deleteCloudDoc,
+  subscribeToCollection,
+  getFirebaseDb,
+  setFirebaseConfig,
+  getActiveFirebaseConfig
+} from './firebase';
+
+export {
+  isFirebaseConfigured,
+  setFirebaseConfig,
+  getActiveFirebaseConfig
+};
+
 const CERTS_KEY = 'biswajit_custom_certificates';
 const PROJECTS_KEY = 'biswajit_custom_projects';
 const CREDS_KEY = 'biswajit_admin_credentials';
@@ -304,6 +320,7 @@ export const addCustomCertificate = (cert) => {
     const updated = [newCert, ...existing.filter(c => c.id !== newCert.id)];
     localStorage.setItem(CERTS_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('portfolio_data_updated'));
+    try { saveCloudDoc('certificates', newCert.id, newCert); } catch (e) {}
     return newCert;
   } catch (e) {
     console.error("Error adding custom certificate:", e);
@@ -317,6 +334,7 @@ export const deleteCustomCertificate = (id) => {
     const updated = existing.filter(c => c.id !== id);
     localStorage.setItem(CERTS_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('portfolio_data_updated'));
+    try { deleteCloudDoc('certificates', id); } catch (e) {}
     return true;
   } catch (e) {
     console.error("Error deleting custom certificate:", e);
@@ -355,6 +373,7 @@ export const addCustomProject = (project) => {
     const updated = [newProject, ...existing.filter(p => p.id !== newProject.id && p.title !== newProject.title)];
     localStorage.setItem(PROJECTS_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('portfolio_data_updated'));
+    try { saveCloudDoc('projects', newProject.id, newProject); } catch (e) {}
     return newProject;
   } catch (e) {
     console.error("Error adding custom project:", e);
@@ -368,6 +387,7 @@ export const deleteCustomProject = (idOrTitle) => {
     const updated = existing.filter(p => p.id !== idOrTitle && p.title !== idOrTitle);
     localStorage.setItem(PROJECTS_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('portfolio_data_updated'));
+    try { deleteCloudDoc('projects', idOrTitle); } catch (e) {}
     return true;
   } catch (e) {
     console.error("Error deleting custom project:", e);
@@ -461,6 +481,10 @@ export const updateCertificate = (id, updatedFields) => {
       localStorage.setItem(OVERRIDES_CERTS_KEY, JSON.stringify(overrides));
     }
     window.dispatchEvent(new Event('portfolio_data_updated'));
+    try {
+      const fullCert = getEffectiveCertificates().find(c => c.id === id);
+      if (fullCert) saveCloudDoc('certificates', id, fullCert);
+    } catch (e) {}
     return true;
   } catch (e) {
     console.error("Error updating certificate:", e);
@@ -491,6 +515,10 @@ export const updateProject = (idOrTitle, updatedFields) => {
       localStorage.setItem(OVERRIDES_PROJECTS_KEY, JSON.stringify(overrides));
     }
     window.dispatchEvent(new Event('portfolio_data_updated'));
+    try {
+      const fullProj = getEffectiveProjects().find(p => p.id === idOrTitle || p.title === idOrTitle);
+      if (fullProj) saveCloudDoc('projects', fullProj.id || idOrTitle, fullProj);
+    } catch (e) {}
     return true;
   } catch (e) {
     console.error("Error updating project:", e);
@@ -604,6 +632,7 @@ export const saveSkillsData = (categories) => {
   try {
     localStorage.setItem(SKILLS_KEY, JSON.stringify(categories));
     window.dispatchEvent(new Event('portfolio_data_updated'));
+    try { saveCloudDoc('skills', 'main', { categories }); } catch (e) {}
     return true;
   } catch (e) {
     console.error("Error saving skills data:", e);
@@ -751,6 +780,7 @@ export const updateHomeData = (fields) => {
     const updated = { ...current, ...fields };
     localStorage.setItem(HOME_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('portfolio_data_updated'));
+    try { saveCloudDoc('home', 'main', updated); } catch (e) {}
     return true;
   } catch (e) {
     console.error("Error updating home data:", e);
@@ -838,6 +868,7 @@ export const updateAboutData = (fields) => {
     const updated = { ...current, ...fields };
     localStorage.setItem(ABOUT_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('portfolio_data_updated'));
+    try { saveCloudDoc('about', 'main', updated); } catch (e) {}
     return true;
   } catch (e) {
     console.error("Error updating about data:", e);
@@ -921,6 +952,7 @@ export const updateContactData = (fields) => {
     const updated = { ...current, ...fields };
     localStorage.setItem(CONTACT_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('portfolio_data_updated'));
+    try { saveCloudDoc('contact', 'main', updated); } catch (e) {}
     return true;
   } catch (e) {
     console.error("Error updating contact data:", e);
@@ -1003,6 +1035,7 @@ export const updateResumeData = (fields) => {
     };
     localStorage.setItem(RESUME_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('portfolio_data_updated'));
+    try { saveCloudDoc('resume', 'main', updated); } catch (e) {}
     return true;
   } catch (e) {
     console.error("Error updating resume data:", e);
@@ -1021,6 +1054,7 @@ export const deleteResume = () => {
     };
     localStorage.setItem(RESUME_KEY, JSON.stringify(cleared));
     window.dispatchEvent(new Event('portfolio_data_updated'));
+    try { saveCloudDoc('resume', 'main', cleared); } catch (e) {}
     return true;
   } catch (e) {
     console.error("Error deleting resume:", e);
@@ -1036,4 +1070,205 @@ export const resetResumeData = () => {
   } catch (e) {
     return false;
   }
+};
+
+// ==========================================
+// 6. CLOUD FIREBASE REALTIME SYNC & BACKUP ENGINE
+// ==========================================
+let activeCloudSubscriptions = [];
+
+export const initCloudSync = () => {
+  if (!isFirebaseConfigured()) {
+    console.info("ℹ️ Cloud Database: Running in offline/local storage mode.");
+    return;
+  }
+
+  // Clear any existing active listeners to avoid duplicates
+  activeCloudSubscriptions.forEach(unsub => {
+    try { unsub(); } catch (e) {}
+  });
+  activeCloudSubscriptions = [];
+
+  console.info("🔥 Activating Firebase Cloud Synchronization...");
+
+  try {
+    // 1. Certificates Real-Time Sync
+    const unsubCerts = subscribeToCollection('certificates', (cloudCerts) => {
+      if (Array.isArray(cloudCerts) && cloudCerts.length > 0) {
+        localStorage.setItem(CERTS_KEY, JSON.stringify(cloudCerts));
+        window.dispatchEvent(new Event('portfolio_data_updated'));
+      }
+    });
+    activeCloudSubscriptions.push(unsubCerts);
+
+    // 2. Projects Real-Time Sync
+    const unsubProjects = subscribeToCollection('projects', (cloudProjects) => {
+      if (Array.isArray(cloudProjects) && cloudProjects.length > 0) {
+        localStorage.setItem(PROJECTS_KEY, JSON.stringify(cloudProjects));
+        window.dispatchEvent(new Event('portfolio_data_updated'));
+      }
+    });
+    activeCloudSubscriptions.push(unsubProjects);
+
+    // 3. Skills Real-Time Sync
+    const unsubSkills = subscribeToCollection('skills', (docs) => {
+      const skillsDoc = docs.find(d => d.id === 'main');
+      if (skillsDoc && skillsDoc.categories) {
+        localStorage.setItem(SKILLS_KEY, JSON.stringify(skillsDoc.categories));
+        window.dispatchEvent(new Event('portfolio_data_updated'));
+      }
+    });
+    activeCloudSubscriptions.push(unsubSkills);
+
+    // 4. Home Real-Time Sync
+    const unsubHome = subscribeToCollection('home', (docs) => {
+      const homeDoc = docs.find(d => d.id === 'main');
+      if (homeDoc) {
+        const { id, updatedAt, ...rest } = homeDoc;
+        localStorage.setItem(HOME_KEY, JSON.stringify(rest));
+        window.dispatchEvent(new Event('portfolio_data_updated'));
+      }
+    });
+    activeCloudSubscriptions.push(unsubHome);
+
+    // 5. About Real-Time Sync
+    const unsubAbout = subscribeToCollection('about', (docs) => {
+      const aboutDoc = docs.find(d => d.id === 'main');
+      if (aboutDoc) {
+        const { id, updatedAt, ...rest } = aboutDoc;
+        localStorage.setItem(ABOUT_KEY, JSON.stringify(rest));
+        window.dispatchEvent(new Event('portfolio_data_updated'));
+      }
+    });
+    activeCloudSubscriptions.push(unsubAbout);
+
+    // 6. Contact Real-Time Sync
+    const unsubContact = subscribeToCollection('contact', (docs) => {
+      const contactDoc = docs.find(d => d.id === 'main');
+      if (contactDoc) {
+        const { id, updatedAt, ...rest } = contactDoc;
+        localStorage.setItem(CONTACT_KEY, JSON.stringify(rest));
+        window.dispatchEvent(new Event('portfolio_data_updated'));
+      }
+    });
+    activeCloudSubscriptions.push(unsubContact);
+
+    // 7. Resume Real-Time Sync
+    const unsubResume = subscribeToCollection('resume', (docs) => {
+      const resumeDoc = docs.find(d => d.id === 'main');
+      if (resumeDoc) {
+        const { id, updatedAt, ...rest } = resumeDoc;
+        localStorage.setItem(RESUME_KEY, JSON.stringify(rest));
+        window.dispatchEvent(new Event('portfolio_data_updated'));
+      }
+    });
+    activeCloudSubscriptions.push(unsubResume);
+
+    window.dispatchEvent(new Event('portfolio_firebase_status_changed'));
+  } catch (err) {
+    console.warn("Could not establish Firebase real-time listeners:", err);
+  }
+};
+
+// Push all current local data up to Firebase Cloud
+export const uploadAllLocalDataToCloud = async () => {
+  if (!isFirebaseConfigured()) {
+    throw new Error("Firebase is not configured. Please enter your Firebase Configuration first.");
+  }
+
+  const customCerts = getCustomCertificates();
+  for (const cert of customCerts) {
+    await saveCloudDoc('certificates', cert.id, cert);
+  }
+
+  const customProjects = getCustomProjects();
+  for (const proj of customProjects) {
+    await saveCloudDoc('projects', proj.id, proj);
+  }
+
+  const skills = getSkillsData();
+  await saveCloudDoc('skills', 'main', { categories: skills });
+
+  const home = getHomeData();
+  await saveCloudDoc('home', 'main', home);
+
+  const about = getAboutData();
+  await saveCloudDoc('about', 'main', about);
+
+  const contact = getContactData();
+  await saveCloudDoc('contact', 'main', contact);
+
+  const resume = getResumeData();
+  await saveCloudDoc('resume', 'main', resume);
+
+  return true;
+};
+
+// Export complete portfolio state as JSON
+export const exportFullPortfolioData = () => {
+  return {
+    version: "2.0",
+    exportedAt: new Date().toISOString(),
+    certificates: getEffectiveCertificates(),
+    customCertificates: getCustomCertificates(),
+    projects: getEffectiveProjects(),
+    customProjects: getCustomProjects(),
+    skills: getSkillsData(),
+    home: getHomeData(),
+    about: getAboutData(),
+    contact: getContactData(),
+    resume: getResumeData(),
+    deletedCertIds: getDeletedCertificateIds(),
+    deletedProjectIds: getDeletedProjectIds(),
+    certOverrides: getCertOverrides(),
+    projectOverrides: getProjectOverrides()
+  };
+};
+
+// Import complete portfolio state from JSON
+export const importFullPortfolioData = (data) => {
+  if (!data || typeof data !== 'object') throw new Error("Invalid backup format.");
+
+  if (Array.isArray(data.customCertificates)) {
+    localStorage.setItem(CERTS_KEY, JSON.stringify(data.customCertificates));
+  }
+  if (Array.isArray(data.customProjects)) {
+    localStorage.setItem(PROJECTS_KEY, JSON.stringify(data.customProjects));
+  }
+  if (Array.isArray(data.skills)) {
+    localStorage.setItem(SKILLS_KEY, JSON.stringify(data.skills));
+  }
+  if (data.home && typeof data.home === 'object') {
+    localStorage.setItem(HOME_KEY, JSON.stringify(data.home));
+  }
+  if (data.about && typeof data.about === 'object') {
+    localStorage.setItem(ABOUT_KEY, JSON.stringify(data.about));
+  }
+  if (data.contact && typeof data.contact === 'object') {
+    localStorage.setItem(CONTACT_KEY, JSON.stringify(data.contact));
+  }
+  if (data.resume && typeof data.resume === 'object') {
+    localStorage.setItem(RESUME_KEY, JSON.stringify(data.resume));
+  }
+  if (Array.isArray(data.deletedCertIds)) {
+    localStorage.setItem(DELETED_CERTS_KEY, JSON.stringify(data.deletedCertIds));
+  }
+  if (Array.isArray(data.deletedProjectIds)) {
+    localStorage.setItem(DELETED_PROJECTS_KEY, JSON.stringify(data.deletedProjectIds));
+  }
+  if (data.certOverrides) {
+    localStorage.setItem(OVERRIDES_CERTS_KEY, JSON.stringify(data.certOverrides));
+  }
+  if (data.projectOverrides) {
+    localStorage.setItem(OVERRIDES_PROJECTS_KEY, JSON.stringify(data.projectOverrides));
+  }
+
+  window.dispatchEvent(new Event('portfolio_data_updated'));
+
+  // If cloud is configured, sync up to cloud as well
+  if (isFirebaseConfigured()) {
+    uploadAllLocalDataToCloud().catch(e => console.warn("Cloud sync post-import failed:", e));
+  }
+
+  return true;
 };

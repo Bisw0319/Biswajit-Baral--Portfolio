@@ -15,7 +15,7 @@ import Footer from './components/Footer';
 import EasterEgg from './components/EasterEgg';
 import SettingsPanel from './components/SettingsPanel';
 import { SettingsProvider } from './context/SettingsContext';
-import { getHomeData } from './utils/portfolioStorage';
+import { getHomeData, initCloudSync } from './utils/portfolioStorage';
 
 const LoadingScreen = ({ onComplete }) => {
   return (
@@ -91,6 +91,11 @@ function App() {
       window.removeEventListener('click', unlockAudio);
       window.removeEventListener('touchstart', unlockAudio);
     };
+  }, []);
+
+  // Initialize Cloud Database Realtime Synchronization
+  useEffect(() => {
+    initCloudSync();
   }, []);
 
   // Real-time Title Bar Icon (Favicon) Synchronization with Profile Picture

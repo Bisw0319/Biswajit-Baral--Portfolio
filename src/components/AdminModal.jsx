@@ -92,7 +92,14 @@ import {
   getResumeData,
   updateResumeData,
   deleteResume,
-  resetResumeData
+  resetResumeData,
+  isFirebaseConfigured,
+  setFirebaseConfig,
+  getActiveFirebaseConfig,
+  uploadAllLocalDataToCloud,
+  exportFullPortfolioData,
+  importFullPortfolioData,
+  initCloudSync
 } from '../utils/portfolioStorage';
 
 const AdminModal = ({ isOpen, onClose }) => {
@@ -216,6 +223,110 @@ const AdminModal = ({ isOpen, onClose }) => {
   const [resumeData, setResumeData] = useState(() => getResumeData());
   const [resumeButtonText, setResumeButtonText] = useState(() => getResumeData().buttonText || 'Download CV');
   const [isResumeUploading, setIsResumeUploading] = useState(false);
+
+  // Cloud Sync State
+  const [isCloudConfigured, setIsCloudConfigured] = useState(() => isFirebaseConfigured());
+  const [cloudConfigInput, setCloudConfigInput] = useState('');
+  const [cloudSyncMsg, setCloudSyncMsg] = useState('');
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+
+  useEffect(() => {
+    const handleStatus = () => setIsCloudConfigured(isFirebaseConfigured());
+    window.addEventListener('portfolio_firebase_status_changed', handleStatus);
+    return () => window.removeEventListener('portfolio_firebase_status_changed', handleStatus);
+  }, []);
+
+  const handleSaveFirebaseConfig = () => {
+    try { playClick?.(); } catch {}
+    if (!cloudConfigInput.trim()) {
+      alert("Please paste your firebaseConfig code or JSON.");
+      return;
+    }
+
+    try {
+      let cleaned = cloudConfigInput.trim();
+      if (cleaned.includes('{') && cleaned.includes('}')) {
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          cleaned = jsonMatch[0];
+        }
+      }
+      
+      const normalized = cleaned
+        .replace(/(\w+)\s*:/g, '"$1":')
+        .replace(/'/g, '"')
+        .replace(/,\s*\}/g, '}');
+
+      const parsed = JSON.parse(normalized);
+      if (!parsed.apiKey || !parsed.projectId) {
+        alert("The pasted config does not contain a valid apiKey and projectId.");
+        return;
+      }
+
+      setFirebaseConfig(parsed);
+      initCloudSync();
+      setIsCloudConfigured(true);
+      setCloudConfigInput('');
+      setCloudSyncMsg('Firebase Cloud Database Connected Successfully! Multi-device sync is now ACTIVE.');
+    } catch (err) {
+      alert("Could not parse the pasted Firebase config. Please ensure it looks like:\n{\n  apiKey: '...',\n  projectId: '...'\n}");
+    }
+  };
+
+  const handleDisconnectFirebase = () => {
+    try { playClick?.(); } catch {}
+    if (window.confirm("Disconnect Firebase Cloud Database? The portfolio will revert to local offline storage.")) {
+      setFirebaseConfig(null);
+      setIsCloudConfigured(false);
+      setCloudSyncMsg('Firebase disconnected. Portfolio is in local offline mode.');
+    }
+  };
+
+  const handleUploadAllToCloud = async () => {
+    try { playClick?.(); } catch {}
+    setIsCloudSyncing(true);
+    setCloudSyncMsg('Syncing all local projects, skills, certificates & data to Firebase...');
+    try {
+      await uploadAllLocalDataToCloud();
+      setCloudSyncMsg('All portfolio data successfully synchronized to Firebase Cloud! Every visitor and device will now see the latest data.');
+    } catch (e) {
+      alert("Cloud Sync Error: " + (e.message || e));
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  };
+
+  const handleExportFullBackup = () => {
+    try { playClick?.(); } catch {}
+    const data = exportFullPortfolioData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `biswajit-portfolio-full-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setActionSuccess('Complete portfolio backup downloaded.');
+  };
+
+  const handleImportFullBackup = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const parsed = JSON.parse(evt.target.result);
+        importFullPortfolioData(parsed);
+        setActionSuccess('Portfolio data successfully restored from backup file!');
+        setRefreshKey(prev => prev + 1);
+      } catch (err) {
+        alert("Failed to import backup file: Invalid JSON structure.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   // Check login on open & sync data
   useEffect(() => {
@@ -1085,6 +1196,25 @@ const AdminModal = ({ isOpen, onClose }) => {
                 >
                   <Key size={14} />
                   <span>Password</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { try { playClick?.(); } catch {} setActiveSection('cloud'); }}
+                  onMouseEnter={() => playHover?.()}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-orbitron tracking-wider uppercase transition-all cursor-pointer ${
+                    activeSection === 'cloud'
+                      ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-black font-bold shadow-[0_0_15px_rgba(245,158,11,0.4)]'
+                      : 'glass-panel text-gray-400 hover:text-amber-400 border border-white/10'
+                  }`}
+                >
+                  <Database size={14} />
+                  <span className="flex items-center gap-1">
+                    Cloud Sync
+                    {isCloudConfigured && (
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    )}
+                  </span>
                 </button>
               </div>
 
@@ -3254,6 +3384,135 @@ const AdminModal = ({ isOpen, onClose }) => {
                       Update Credentials
                     </button>
                   </form>
+                </div>
+              )}
+
+              {/* TAB 5: CLOUD DATABASE & BACKUP SYNC */}
+              {activeSection === 'cloud' && (
+                <div className="max-w-2xl mx-auto py-4 space-y-6">
+                  {/* Status Banner */}
+                  <div className={`p-4 rounded-2xl border ${
+                    isCloudConfigured 
+                      ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300' 
+                      : 'bg-amber-500/10 border-amber-500/40 text-amber-300'
+                  }`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Database size={18} className={isCloudConfigured ? 'text-emerald-400' : 'text-amber-400'} />
+                        <span className="font-orbitron font-bold text-sm tracking-wider uppercase">
+                          {isCloudConfigured ? '🔥 Firebase Cloud Database: Connected' : '⚪ Cloud Database: Offline / Local Mode'}
+                        </span>
+                      </div>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wider ${
+                        isCloudConfigured ? 'bg-emerald-500/20 border border-emerald-500/50 text-emerald-300' : 'bg-amber-500/20 border border-amber-500/50 text-amber-300'
+                      }`}>
+                        {isCloudConfigured ? 'REALTIME SYNC ACTIVE' : 'LOCAL ONLY'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-300 leading-relaxed font-inter">
+                      {isCloudConfigured 
+                        ? 'Your website is connected to Google Firebase Cloud Firestore. Any skill, project, or certificate you add or edit will automatically sync across all phones, computers, and visitors in real-time.'
+                        : 'Your website is currently storing edits in your browser memory on this computer only. Connect your free Google Firebase database below to make all edits visible on your phone and to visitors worldwide.'}
+                    </p>
+                  </div>
+
+                  {cloudSyncMsg && (
+                    <div className="p-3 rounded-xl bg-cyber-blue/15 border border-cyber-blue/50 text-cyber-blue text-xs font-mono flex items-center gap-2">
+                      <Sparkles size={16} />
+                      <span>{cloudSyncMsg}</span>
+                    </div>
+                  )}
+
+                  {/* Section A: Firebase Setup Box */}
+                  <div className="p-5 rounded-2xl glass-panel border border-white/10 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-white font-orbitron text-sm font-bold flex items-center gap-2">
+                          <Zap size={15} className="text-amber-400" />
+                          <span>Google Firebase Configuration</span>
+                        </h4>
+                        <p className="text-gray-400 text-xs mt-1">
+                          Paste your Firebase Web App configuration below to connect instantly.
+                        </p>
+                      </div>
+                      {isCloudConfigured && (
+                        <button
+                          type="button"
+                          onClick={handleDisconnectFirebase}
+                          className="px-3 py-1.5 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 text-xs font-orbitron transition-all cursor-pointer"
+                        >
+                          Disconnect
+                        </button>
+                      )}
+                    </div>
+
+                    <div>
+                      <textarea
+                        rows={6}
+                        value={cloudConfigInput}
+                        onChange={(e) => setCloudConfigInput(e.target.value)}
+                        placeholder={`const firebaseConfig = {\n  apiKey: "AIzaSy...",\n  authDomain: "portfolio.firebaseapp.com",\n  projectId: "your-project-id",\n  storageBucket: "...",\n  messagingSenderId: "...",\n  appId: "..."\n};`}
+                        className="w-full px-4 py-3 rounded-xl bg-black/60 border border-white/15 text-white font-mono text-xs focus:border-amber-400 focus:outline-none placeholder-gray-600"
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={handleSaveFirebaseConfig}
+                        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-black font-orbitron font-bold text-xs tracking-wider uppercase hover:opacity-90 transition-all cursor-pointer shadow-[0_0_15px_rgba(245,158,11,0.3)]"
+                      >
+                        Connect Cloud Database
+                      </button>
+
+                      {isCloudConfigured && (
+                        <button
+                          type="button"
+                          disabled={isCloudSyncing}
+                          onClick={handleUploadAllToCloud}
+                          className="px-5 py-2.5 rounded-xl bg-cyber-blue/15 border border-cyber-blue/50 text-cyber-blue font-orbitron font-bold text-xs tracking-wider uppercase hover:bg-cyber-blue/25 transition-all cursor-pointer flex items-center gap-2"
+                        >
+                          <Upload size={14} />
+                          <span>{isCloudSyncing ? 'Uploading...' : 'Upload Local Data To Cloud'}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Section B: Offline Backup & Cross-Device Import/Export */}
+                  <div className="p-5 rounded-2xl glass-panel border border-white/10 space-y-4">
+                    <div>
+                      <h4 className="text-white font-orbitron text-sm font-bold flex items-center gap-2">
+                        <Database size={15} className="text-cyber-blue" />
+                        <span>Instant File Backup & Cross-Device Transfer</span>
+                      </h4>
+                      <p className="text-gray-400 text-xs mt-1">
+                        Download a complete backup JSON file of all your projects, skills, certificates, and settings to transfer between devices without needing any cloud account.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-4">
+                      <button
+                        type="button"
+                        onClick={handleExportFullBackup}
+                        className="px-4 py-2.5 rounded-xl border border-cyber-blue/40 bg-cyber-blue/10 hover:bg-cyber-blue/20 text-cyber-blue font-orbitron text-xs flex items-center gap-2 transition-all cursor-pointer"
+                      >
+                        <Download size={14} />
+                        <span>Export Backup File (.json)</span>
+                      </button>
+
+                      <label className="px-4 py-2.5 rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 text-white font-orbitron text-xs flex items-center gap-2 transition-all cursor-pointer">
+                        <Upload size={14} />
+                        <span>Import Backup File (.json)</span>
+                        <input
+                          type="file"
+                          accept=".json,application/json"
+                          onChange={handleImportFullBackup}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
