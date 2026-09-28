@@ -105,32 +105,171 @@ const defaultCertificates = [
 const slideVariants = {
   enter: (direction) => ({
     x: direction > 0 ? '100%' : '-100%',
-    opacity: 0,
-    scale: 0.96
+    opacity: 0
   }),
   center: {
     zIndex: 1,
     x: 0,
     opacity: 1,
-    scale: 1,
     transition: {
-      x: { type: "tween", ease: [0.25, 1, 0.5, 1], duration: 0.55 },
-      opacity: { duration: 0.3 },
-      scale: { duration: 0.3 }
+      x: { type: "tween", ease: [0.16, 1, 0.3, 1], duration: 0.55 },
+      opacity: { duration: 0.35, ease: "easeOut" }
     }
   },
   exit: (direction) => ({
     zIndex: 0,
     x: direction < 0 ? '100%' : '-100%',
     opacity: 0,
-    scale: 0.96,
     transition: {
-      x: { type: "tween", ease: [0.25, 1, 0.5, 1], duration: 0.45 },
-      opacity: { duration: 0.25 },
-      scale: { duration: 0.25 }
+      x: { type: "tween", ease: [0.16, 1, 0.3, 1], duration: 0.48 },
+      opacity: { duration: 0.25, ease: "easeIn" }
     }
   })
 };
+
+const CertificateSlideCard = React.memo(({
+  cert,
+  isDragging,
+  setModalCert,
+  copiedId,
+  handleCopy,
+  playHover,
+  playClick
+}) => {
+  return (
+    <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center select-none">
+      {/* Slide Card: Left Image */}
+      <div className="lg:col-span-6 relative flex flex-col items-center">
+        <div 
+          onClick={() => {
+            if (!isDragging) {
+              playClick?.();
+              setModalCert(cert);
+            }
+          }}
+          onMouseEnter={() => playHover?.()}
+          className="w-full relative group rounded-xl overflow-hidden border border-white/20 bg-black/70 shadow-2xl transition-all duration-300 hover:border-cyber-blue/60 cursor-pointer"
+          style={{ 
+            boxShadow: `0 0 30px ${cert.glowColor || '#00f0ff'}25`,
+            transform: 'translateZ(0)'
+          }}
+        >
+          {/* Glowing Neon Accent Corners */}
+          <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 pointer-events-none z-20 transition-colors" style={{ borderColor: cert.glowColor }}></div>
+          <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 pointer-events-none z-20 transition-colors" style={{ borderColor: cert.glowColor }}></div>
+
+          {/* Image */}
+          <img 
+            src={cert.image} 
+            alt={cert.title}
+            draggable="false"
+            loading="eager"
+            decoding="async"
+            className="w-full h-auto object-cover max-h-[340px] md:max-h-[400px] pointer-events-none transition-transform duration-500 group-hover:scale-105"
+          />
+
+          {/* Laser Scanline */}
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%)] bg-[length:100%_4px] pointer-events-none opacity-25"></div>
+
+          {/* Hover Overlay with Zoom Icon */}
+          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-2 z-30">
+            <div className="p-3.5 rounded-full bg-cyber-blue text-black shadow-[0_0_20px_#00f0ff] transform group-hover:scale-110 transition-transform">
+              <Maximize2 size={24} />
+            </div>
+            <span className="text-white font-orbitron text-xs tracking-widest uppercase font-bold">Inspect Document</span>
+            <span className="text-cyber-blue text-[10px] font-mono">Drag to slide &bull; Click to zoom</span>
+          </div>
+        </div>
+
+        {/* Quick Mobile Expand */}
+        <button
+          onClick={() => { playClick?.(); setModalCert(cert); }}
+          className="mt-3 flex items-center gap-1.5 text-xs text-cyber-blue font-orbitron hover:underline md:hidden cursor-pointer"
+        >
+          <Maximize2 size={13} />
+          <span>Tap to enlarge certificate</span>
+        </button>
+      </div>
+
+      {/* Slide Card: Right Details */}
+      <div className="lg:col-span-6 flex flex-col justify-center space-y-4">
+        <div className="flex items-center gap-2">
+          <Award size={18} style={{ color: cert.glowColor }} />
+          <span className="text-xs font-orbitron tracking-widest uppercase font-semibold" style={{ color: cert.glowColor }}>
+            {cert.category}
+          </span>
+        </div>
+
+        <h3 className="text-2xl md:text-3xl font-orbitron font-bold text-white leading-tight">
+          {cert.title}
+        </h3>
+
+        <div className="text-cyber-blue font-inter font-medium text-base">
+          {cert.issuer}
+          {cert.subtitle && (
+            <span className="text-gray-400 block text-xs mt-0.5 font-mono">{cert.subtitle}</span>
+          )}
+        </div>
+
+        <p className="text-gray-300 text-sm leading-relaxed font-inter">
+          {cert.description}
+        </p>
+
+        {/* Meta Grid */}
+        <div className="grid grid-cols-2 gap-3 py-3 border-y border-white/10 text-xs font-mono">
+          <div>
+            <span className="text-gray-500 block uppercase text-[10px]">Issue Date</span>
+            <span className="text-gray-200">{cert.date}</span>
+          </div>
+          <div>
+            <span className="text-gray-500 block uppercase text-[10px]">Validity</span>
+            <span className="text-gray-200">{cert.validity}</span>
+          </div>
+          <div className="col-span-2 flex items-center justify-between bg-black/50 p-2.5 rounded-lg border border-white/10">
+            <div>
+              <span className="text-gray-500 block uppercase text-[10px]">Credential ID</span>
+              <span className="text-cyber-blue font-mono font-bold tracking-wider">{cert.certNumber}</span>
+            </div>
+            <button
+              onClick={() => handleCopy(cert.id, cert.certNumber)}
+              onMouseEnter={() => playHover?.()}
+              className="p-1.5 text-gray-400 hover:text-white transition-colors cursor-pointer"
+              title="Copy Credential ID"
+            >
+              {copiedId === cert.id ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
+            </button>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-3 pt-2">
+          {cert.url && cert.url !== "#" && (
+            <a
+              href={cert.url}
+              target="_blank"
+              rel="noreferrer"
+              onMouseEnter={() => playHover?.()}
+              onClick={() => playClick?.()}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-cyber-blue text-black font-orbitron font-bold text-xs uppercase tracking-wider rounded transition-all hover:shadow-[0_0_20px_#00f0ff] hover:scale-105 cursor-pointer"
+            >
+              <span>Verify Online</span>
+              <ExternalLink size={14} />
+            </a>
+          )}
+
+          <button
+            onClick={() => { playClick?.(); setModalCert(cert); }}
+            onMouseEnter={() => playHover?.()}
+            className="inline-flex items-center gap-2 px-5 py-2.5 border border-white/20 hover:border-cyber-blue text-white hover:text-cyber-blue font-orbitron text-xs uppercase tracking-wider rounded transition-all glass-panel cursor-pointer"
+          >
+            <Maximize2 size={14} />
+            <span>Full Resolution</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
 
 const Certificates = () => {
   const [[page, direction], setPage] = useState([0, 0]);
@@ -145,6 +284,17 @@ const Certificates = () => {
   const playClick = context?.playClick;
 
   const [allCertificates, setAllCertificates] = useState(() => getEffectiveCertificates());
+
+  // Background Image Preloader: ensures next/prev slide images are immediately decoded in VRAM
+  useEffect(() => {
+    if (!allCertificates || allCertificates.length === 0) return;
+    allCertificates.forEach(cert => {
+      if (cert.image) {
+        const img = new Image();
+        img.src = cert.image;
+      }
+    });
+  }, [allCertificates]);
 
   useEffect(() => {
     const handleSync = () => {
@@ -210,14 +360,14 @@ const Certificates = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [viewMode, modalCert, paginate]);
 
-  // Autoplay timer (always on, smoothly pauses on user hover)
+  // Autoplay timer (always on, smoothly pauses on user hover or drag, resets cleanly on page change)
   useEffect(() => {
-    if (!isAutoPlay || viewMode !== 'carousel' || modalCert || isHovered) return;
+    if (!isAutoPlay || viewMode !== 'carousel' || modalCert || isHovered || isDragging) return;
     const interval = setInterval(() => {
       setPage(([prevPage]) => [prevPage + 1, 1]);
-    }, 4000);
+    }, 4500);
     return () => clearInterval(interval);
-  }, [isAutoPlay, viewMode, modalCert, isHovered]);
+  }, [isAutoPlay, viewMode, modalCert, isHovered, isDragging, page]);
 
   return (
     <section id="certificates" className="min-h-screen pt-28 md:pt-32 pb-24 relative z-10 select-none">
@@ -379,7 +529,7 @@ const Certificates = () => {
                   </button>
 
                   {/* Center Interactive Slide Container */}
-                  <div className="w-full max-w-4xl relative overflow-hidden px-8 md:px-12 py-2">
+                  <div className="w-full max-w-4xl relative overflow-hidden px-4 sm:px-8 md:px-12 py-2 min-h-[580px] sm:min-h-[520px] lg:min-h-[460px] flex items-center justify-center">
                     <AnimatePresence initial={false} custom={direction} mode="popLayout">
                       <motion.div
                         key={page}
@@ -390,145 +540,30 @@ const Certificates = () => {
                         exit="exit"
                         drag="x"
                         dragConstraints={{ left: 0, right: 0 }}
-                        dragElastic={0.3}
+                        dragElastic={0.2}
                         onDragStart={() => setIsDragging(true)}
                         onDragEnd={(e, info) => {
                           setTimeout(() => setIsDragging(false), 50);
-                          const threshold = 30;
-                          const velocity = 0.15;
+                          const threshold = 35;
+                          const velocity = 0.2;
                           if (info.offset.x < -threshold || info.velocity.x < -velocity) {
                             paginate(1);
                           } else if (info.offset.x > threshold || info.velocity.x > velocity) {
                             paginate(-1);
                           }
                         }}
-                        className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center cursor-grab active:cursor-grabbing touch-pan-y"
+                        style={{ willChange: 'transform, opacity' }}
+                        className="w-full cursor-grab active:cursor-grabbing touch-pan-y"
                       >
-                        {/* Slide Card: Left Image */}
-                        <div className="lg:col-span-6 relative flex flex-col items-center">
-                          <div 
-                            onClick={() => {
-                              if (!isDragging) {
-                                playClick?.();
-                                setModalCert(currentCert);
-                              }
-                            }}
-                            onMouseEnter={() => playHover?.()}
-                            className="w-full relative group rounded-xl overflow-hidden border border-white/20 bg-black/70 shadow-2xl transition-all duration-300 hover:border-cyber-blue/60"
-                            style={{ boxShadow: `0 0 35px ${currentCert.glowColor}25` }}
-                          >
-                            {/* Glowing Neon Accent Corners */}
-                            <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 pointer-events-none z-20 transition-colors" style={{ borderColor: currentCert.glowColor }}></div>
-                            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 pointer-events-none z-20 transition-colors" style={{ borderColor: currentCert.glowColor }}></div>
-
-                            {/* Image */}
-                            <img 
-                              src={currentCert.image} 
-                              alt={currentCert.title}
-                              draggable="false"
-                              className="w-full h-auto object-cover max-h-[340px] md:max-h-[400px] pointer-events-none transition-transform duration-500 group-hover:scale-105"
-                            />
-
-                            {/* Laser Scanline */}
-                            <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(0,240,255,0.06),rgba(0,0,0,0),rgba(0,240,255,0.06))] bg-[length:100%_2px,4px_100%] pointer-events-none opacity-40"></div>
-
-                            {/* Hover Overlay with Zoom Icon */}
-                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-2 z-30">
-                              <div className="p-3.5 rounded-full bg-cyber-blue text-black shadow-[0_0_20px_#00f0ff] transform group-hover:scale-110 transition-transform">
-                                <Maximize2 size={24} />
-                              </div>
-                              <span className="text-white font-orbitron text-xs tracking-widest uppercase font-bold">Inspect Document</span>
-                              <span className="text-cyber-blue text-[10px] font-mono">Drag to slide &bull; Click to zoom</span>
-                            </div>
-                          </div>
-
-                          {/* Quick Mobile Expand */}
-                          <button
-                            onClick={() => { playClick?.(); setModalCert(currentCert); }}
-                            className="mt-3 flex items-center gap-1.5 text-xs text-cyber-blue font-orbitron hover:underline md:hidden"
-                          >
-                            <Maximize2 size={13} />
-                            <span>Tap to enlarge certificate</span>
-                          </button>
-                        </div>
-
-                        {/* Slide Card: Right Details */}
-                        <div className="lg:col-span-6 flex flex-col justify-center space-y-4">
-                          <div className="flex items-center gap-2">
-                            <Award size={18} style={{ color: currentCert.glowColor }} />
-                            <span className="text-xs font-orbitron tracking-widest uppercase font-semibold" style={{ color: currentCert.glowColor }}>
-                              {currentCert.category}
-                            </span>
-                          </div>
-
-                          <h3 className="text-2xl md:text-3xl font-orbitron font-bold text-white leading-tight">
-                            {currentCert.title}
-                          </h3>
-
-                          <div className="text-cyber-blue font-inter font-medium text-base">
-                            {currentCert.issuer}
-                            {currentCert.subtitle && (
-                              <span className="text-gray-400 block text-xs mt-0.5 font-mono">{currentCert.subtitle}</span>
-                            )}
-                          </div>
-
-                          <p className="text-gray-300 text-sm leading-relaxed font-inter">
-                            {currentCert.description}
-                          </p>
-
-                          {/* Meta Grid */}
-                          <div className="grid grid-cols-2 gap-3 py-3 border-y border-white/10 text-xs font-mono">
-                            <div>
-                              <span className="text-gray-500 block uppercase text-[10px]">Issue Date</span>
-                              <span className="text-gray-200">{currentCert.date}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500 block uppercase text-[10px]">Validity</span>
-                              <span className="text-gray-200">{currentCert.validity}</span>
-                            </div>
-                            <div className="col-span-2 flex items-center justify-between bg-black/50 p-2.5 rounded-lg border border-white/10">
-                              <div>
-                                <span className="text-gray-500 block uppercase text-[10px]">Credential ID</span>
-                                <span className="text-cyber-blue font-mono font-bold tracking-wider">{currentCert.certNumber}</span>
-                              </div>
-                              <button
-                                onClick={() => handleCopy(currentCert.id, currentCert.certNumber)}
-                                onMouseEnter={() => playHover?.()}
-                                className="p-1.5 text-gray-400 hover:text-white transition-colors"
-                                title="Copy Credential ID"
-                              >
-                                {copiedId === currentCert.id ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div className="flex flex-wrap gap-3 pt-2">
-                            {currentCert.url !== "#" && (
-                              <a
-                                href={currentCert.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                onMouseEnter={() => playHover?.()}
-                                onClick={() => playClick?.()}
-                                className="inline-flex items-center gap-2 px-5 py-2.5 bg-cyber-blue text-black font-orbitron font-bold text-xs uppercase tracking-wider rounded transition-all hover:shadow-[0_0_20px_#00f0ff] hover:scale-105"
-                              >
-                                <span>Verify Online</span>
-                                <ExternalLink size={14} />
-                              </a>
-                            )}
-
-                            <button
-                              onClick={() => { playClick?.(); setModalCert(currentCert); }}
-                              onMouseEnter={() => playHover?.()}
-                              className="inline-flex items-center gap-2 px-5 py-2.5 border border-white/20 hover:border-cyber-blue text-white hover:text-cyber-blue font-orbitron text-xs uppercase tracking-wider rounded transition-all glass-panel cursor-pointer"
-                            >
-                              <Maximize2 size={14} />
-                              <span>Full Resolution</span>
-                            </button>
-                          </div>
-
-                        </div>
+                        <CertificateSlideCard
+                          cert={allCertificates[((page % totalCerts) + totalCerts) % totalCerts] || defaultCertificates[0]}
+                          isDragging={isDragging}
+                          setModalCert={setModalCert}
+                          copiedId={copiedId}
+                          handleCopy={handleCopy}
+                          playHover={playHover}
+                          playClick={playClick}
+                        />
                       </motion.div>
                     </AnimatePresence>
                   </div>
