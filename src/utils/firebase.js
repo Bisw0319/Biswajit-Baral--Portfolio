@@ -13,8 +13,18 @@ import {
 
 const FIREBASE_CONFIG_KEY = 'biswajit_firebase_config';
 
+const BUILT_IN_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBkkqs-6zG_Ithbul5NH6TL8JgtSKvg_rY",
+  authDomain: "biswajit-portfolio-99e5c.firebaseapp.com",
+  projectId: "biswajit-portfolio-99e5c",
+  storageBucket: "biswajit-portfolio-99e5c.firebasestorage.app",
+  messagingSenderId: "726003583175",
+  appId: "1:726003583175:web:85c5a8cc25a1477a6496e2",
+  measurementId: "G-ZEH0L029CB"
+};
+
 // Default / fallback Firebase configuration
-// Can be populated via .env (VITE_FIREBASE_API_KEY, etc.) or pasted via Admin Portal
+// Can be overridden via Admin Portal or localStorage
 const getDefaultConfig = () => {
   try {
     const stored = localStorage.getItem(FIREBASE_CONFIG_KEY);
@@ -41,7 +51,7 @@ const getDefaultConfig = () => {
     };
   }
 
-  return null;
+  return BUILT_IN_FIREBASE_CONFIG;
 };
 
 let appInstance = null;
