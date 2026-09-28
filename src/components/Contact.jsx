@@ -48,6 +48,88 @@ const Contact = () => {
     return () => window.removeEventListener('portfolio_data_updated', handleUpdate);
   }, []);
 
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const ua = navigator.userAgent || '';
+      const mobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua) || (navigator.maxTouchPoints > 0 && window.innerWidth < 768);
+      setIsMobile(mobile);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const openDirectEmail = (e, { subject, body } = {}) => {
+    const toEmail = contactData.email || 'freelixir.b@gmail.com';
+    const sub = subject || 'Portfolio Inquiry for Biswajit Baral';
+    const msg = body || contactData.defaultChatMessage || DEFAULT_PRECHAT_MESSAGE;
+    const cleanSub = encodeURIComponent(sub);
+    const cleanBody = encodeURIComponent(msg);
+
+    const ua = navigator.userAgent || '';
+    const isAndroid = /Android/i.test(ua);
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+    const mobileDevice = isAndroid || isIOS || (navigator.maxTouchPoints > 0 && window.innerWidth < 768);
+
+    if (mobileDevice) {
+      if (e && e.preventDefault) e.preventDefault();
+
+      if (isAndroid) {
+        // Direct intent to Gmail App on Android using official package: com.google.android.gm
+        const intentUrl = `intent://#Intent;action=android.intent.action.SENDTO;data=mailto%3A${encodeURIComponent(toEmail)}%3Fsubject%3D${cleanSub}%26body%3D${cleanBody};package=com.google.android.gm;end`;
+        
+        let redirected = false;
+        const timer = setTimeout(() => {
+          if (!redirected) {
+            window.location.href = `mailto:${toEmail}?subject=${cleanSub}&body=${cleanBody}`;
+          }
+        }, 500);
+
+        try {
+          window.location.href = intentUrl;
+        } catch {
+          clearTimeout(timer);
+          window.location.href = `mailto:${toEmail}?subject=${cleanSub}&body=${cleanBody}`;
+        }
+        return;
+      }
+
+      if (isIOS) {
+        // iOS: Try Gmail app scheme first, then default Mail app
+        const iosGmailUrl = `googlegmail:///co?to=${encodeURIComponent(toEmail)}&subject=${cleanSub}&body=${cleanBody}`;
+        const timer = setTimeout(() => {
+          window.location.href = `mailto:${toEmail}?subject=${cleanSub}&body=${cleanBody}`;
+        }, 500);
+
+        try {
+          window.location.href = iosGmailUrl;
+        } catch {
+          clearTimeout(timer);
+          window.location.href = `mailto:${toEmail}?subject=${cleanSub}&body=${cleanBody}`;
+        }
+        return;
+      }
+
+      window.location.href = `mailto:${toEmail}?subject=${cleanSub}&body=${cleanBody}`;
+      return;
+    }
+  };
+
+  const getDirectEmailHref = (subject, body) => {
+    const toEmail = contactData.email || 'freelixir.b@gmail.com';
+    const sub = subject || 'Portfolio Inquiry for Biswajit Baral';
+    const msg = body || contactData.defaultChatMessage || DEFAULT_PRECHAT_MESSAGE;
+    const cleanSub = encodeURIComponent(sub);
+    const cleanBody = encodeURIComponent(msg);
+
+    if (isMobile) {
+      return `mailto:${toEmail}?subject=${cleanSub}&body=${cleanBody}`;
+    }
+    return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(toEmail)}&su=${cleanSub}&body=${cleanBody}`;
+  };
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -243,7 +325,14 @@ const Contact = () => {
 
               {/* Row-Wise Contact Info Grid on Mobile */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2.5 sm:gap-4">
-                <div className="flex items-center gap-3 text-gray-300 hover:text-cyber-blue transition-colors group/item p-2.5 sm:p-3 rounded-lg bg-cyber-dark/40 border border-white/5">
+                <a
+                  href={getDirectEmailHref('Portfolio Inquiry for Biswajit Baral', contactData.defaultChatMessage || DEFAULT_PRECHAT_MESSAGE)}
+                  onClick={(e) => openDirectEmail(e, { subject: 'Portfolio Inquiry for Biswajit Baral', body: contactData.defaultChatMessage || DEFAULT_PRECHAT_MESSAGE })}
+                  target={isMobile ? undefined : "_blank"}
+                  rel="noreferrer"
+                  className="flex items-center gap-3 text-gray-300 hover:text-cyber-blue transition-colors group/item p-2.5 sm:p-3 rounded-lg bg-cyber-dark/40 border border-white/5 cursor-pointer"
+                  title="Direct to Gmail"
+                >
                   <div className="p-2 sm:p-2.5 bg-cyber-dark/70 rounded-lg border border-white/5 group-hover/item:border-cyber-blue/50 flex-shrink-0">
                     <Mail size={18} className="text-cyber-blue" />
                   </div>
@@ -251,7 +340,7 @@ const Contact = () => {
                     <div className="text-[10px] font-orbitron text-gray-500 uppercase">Email</div>
                     <div className="font-mono text-xs sm:text-sm truncate text-white">{contactData.email || "freelixir.b@gmail.com"}</div>
                   </div>
-                </div>
+                </a>
 
                 <div className="flex items-center gap-3 text-gray-300 hover:text-cyber-yellow transition-colors group/item p-2.5 sm:p-3 rounded-lg bg-cyber-dark/40 border border-white/5">
                   <div className="p-2 sm:p-2.5 bg-cyber-dark/70 rounded-lg border border-white/5 group-hover/item:border-cyber-yellow/50 flex-shrink-0">
@@ -294,15 +383,16 @@ const Contact = () => {
               </a>
 
               <a
-                href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(contactData.email || 'freelixir.b@gmail.com')}&su=${encodeURIComponent('Portfolio Inquiry for Biswajit Baral')}&body=${encodeURIComponent(contactData.defaultChatMessage || DEFAULT_PRECHAT_MESSAGE)}`}
-                target="_blank"
+                href={getDirectEmailHref('Portfolio Inquiry for Biswajit Baral', contactData.defaultChatMessage || DEFAULT_PRECHAT_MESSAGE)}
+                onClick={(e) => openDirectEmail(e, { subject: 'Portfolio Inquiry for Biswajit Baral', body: contactData.defaultChatMessage || DEFAULT_PRECHAT_MESSAGE })}
+                target={isMobile ? undefined : "_blank"}
                 rel="noreferrer"
                 className="glass-panel p-3 sm:p-4 rounded-xl flex items-center justify-between group cursor-pointer hover:border-cyber-blue/50 transition-colors"
-                title="Send pre-filled message via Gmail"
+                title={isMobile ? "Open in Gmail App" : "Send pre-filled message via Gmail"}
               >
                 <div className="min-w-0">
                   <h4 className="font-orbitron text-cyber-blue text-xs sm:text-sm font-bold truncate">Direct Gmail</h4>
-                  <p className="text-[10px] text-gray-400 hidden xs:block">Open client</p>
+                  <p className="text-[10px] text-gray-400 hidden xs:block">{isMobile ? "Open Gmail app" : "Open client"}</p>
                 </div>
                 <div className="w-8 h-8 rounded-full bg-cyber-blue/10 flex items-center justify-center flex-shrink-0 group-hover:bg-cyber-blue/20">
                   <Mail className="text-cyber-blue" size={16} />
@@ -359,8 +449,9 @@ const Contact = () => {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <a
-                      href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(contactData.email || 'freelixir.b@gmail.com')}&su=${encodeURIComponent('Portfolio Message from ' + (lastSentData?.name || 'Visitor'))}&body=${encodeURIComponent('From: ' + (lastSentData?.name || 'Visitor') + ' (' + (lastSentData?.email || 'No email') + ')\n\nMessage:\n' + (lastSentData?.message || 'Hello Biswajit!'))}`}
-                      target="_blank"
+                      href={getDirectEmailHref('Portfolio Message from ' + (lastSentData?.name || 'Visitor'), 'From: ' + (lastSentData?.name || 'Visitor') + ' (' + (lastSentData?.email || 'No email') + ')\n\nMessage:\n' + (lastSentData?.message || 'Hello Biswajit!'))}
+                      onClick={(e) => openDirectEmail(e, { subject: 'Portfolio Message from ' + (lastSentData?.name || 'Visitor'), body: 'From: ' + (lastSentData?.name || 'Visitor') + ' (' + (lastSentData?.email || 'No email') + ')\n\nMessage:\n' + (lastSentData?.message || 'Hello Biswajit!') })}
+                      target={isMobile ? undefined : "_blank"}
                       rel="noreferrer"
                       className="px-3 py-2.5 rounded-lg bg-cyber-blue/15 hover:bg-cyber-blue text-cyber-blue hover:text-black border border-cyber-blue/40 text-xs font-orbitron font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm"
                     >
@@ -452,8 +543,9 @@ const Contact = () => {
 
                     <div className="flex flex-wrap items-center gap-2 pt-1">
                       <a
-                        href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(contactData.email || 'freelixir.b@gmail.com')}&su=${encodeURIComponent('Portfolio Message from ' + (formData.name || 'Visitor'))}&body=${encodeURIComponent('From: ' + (formData.name || 'Visitor') + ' (' + (formData.email || 'No email') + ')\n\nMessage:\n' + (formData.message || ''))}`}
-                        target="_blank"
+                        href={getDirectEmailHref('Portfolio Message from ' + (formData.name || 'Visitor'), 'From: ' + (formData.name || 'Visitor') + ' (' + (formData.email || 'No email') + ')\n\nMessage:\n' + (formData.message || ''))}
+                        onClick={(e) => openDirectEmail(e, { subject: 'Portfolio Message from ' + (formData.name || 'Visitor'), body: 'From: ' + (formData.name || 'Visitor') + ' (' + (formData.email || 'No email') + ')\n\nMessage:\n' + (formData.message || '') })}
+                        target={isMobile ? undefined : "_blank"}
                         rel="noreferrer"
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyber-blue text-black hover:bg-cyber-blue/90 text-xs font-orbitron font-bold transition-all cursor-pointer shadow-sm"
                       >
@@ -589,8 +681,9 @@ const Contact = () => {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <a
-                      href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(contactData.email || 'freelixir.b@gmail.com')}&su=${encodeURIComponent('Portfolio Message from ' + (formData.name || 'Visitor'))}&body=${encodeURIComponent('From: ' + (formData.name || 'Visitor') + ' (' + (formData.email || 'No email') + ')\n\nMessage:\n' + (formData.message || contactData.defaultChatMessage || DEFAULT_PRECHAT_MESSAGE))}`}
-                      target="_blank"
+                      href={getDirectEmailHref('Portfolio Message from ' + (formData.name || 'Visitor'), 'From: ' + (formData.name || 'Visitor') + ' (' + (formData.email || 'No email') + ')\n\nMessage:\n' + (formData.message || contactData.defaultChatMessage || DEFAULT_PRECHAT_MESSAGE))}
+                      onClick={(e) => openDirectEmail(e, { subject: 'Portfolio Message from ' + (formData.name || 'Visitor'), body: 'From: ' + (formData.name || 'Visitor') + ' (' + (formData.email || 'No email') + ')\n\nMessage:\n' + (formData.message || contactData.defaultChatMessage || DEFAULT_PRECHAT_MESSAGE) })}
+                      target={isMobile ? undefined : "_blank"}
                       rel="noreferrer"
                       className="px-3 py-2 rounded-lg bg-cyber-blue/15 hover:bg-cyber-blue text-cyber-blue hover:text-black border border-cyber-blue/40 text-xs font-orbitron font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm"
                       title="Opens pre-filled email in Gmail"
