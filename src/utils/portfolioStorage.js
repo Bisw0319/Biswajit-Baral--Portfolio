@@ -307,6 +307,33 @@ export const getCustomCertificates = () => {
   }
 };
 
+// Cloud State Synchronization Helpers for Collections
+export const syncProjectsToCloud = async () => {
+  try {
+    const payload = {
+      customProjects: getCustomProjects(),
+      deletedProjectIds: getDeletedProjectIds(),
+      projectOverrides: getProjectOverrides()
+    };
+    await saveCloudDoc('projects_data', 'main', payload);
+  } catch (e) {
+    console.warn("Could not sync projects to cloud:", e);
+  }
+};
+
+export const syncCertificatesToCloud = async () => {
+  try {
+    const payload = {
+      customCertificates: getCustomCertificates(),
+      deletedCertIds: getDeletedCertificateIds(),
+      certOverrides: getCertOverrides()
+    };
+    await saveCloudDoc('certificates_data', 'main', payload);
+  } catch (e) {
+    console.warn("Could not sync certificates to cloud:", e);
+  }
+};
+
 export const addCustomCertificate = (cert) => {
   try {
     const existing = getCustomCertificates();
@@ -320,7 +347,7 @@ export const addCustomCertificate = (cert) => {
     const updated = [newCert, ...existing.filter(c => c.id !== newCert.id)];
     localStorage.setItem(CERTS_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('portfolio_data_updated'));
-    try { saveCloudDoc('certificates', newCert.id, newCert); } catch (e) {}
+    syncCertificatesToCloud();
     return newCert;
   } catch (e) {
     console.error("Error adding custom certificate:", e);
@@ -334,7 +361,7 @@ export const deleteCustomCertificate = (id) => {
     const updated = existing.filter(c => c.id !== id);
     localStorage.setItem(CERTS_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('portfolio_data_updated'));
-    try { deleteCloudDoc('certificates', id); } catch (e) {}
+    syncCertificatesToCloud();
     return true;
   } catch (e) {
     console.error("Error deleting custom certificate:", e);
@@ -373,7 +400,7 @@ export const addCustomProject = (project) => {
     const updated = [newProject, ...existing.filter(p => p.id !== newProject.id && p.title !== newProject.title)];
     localStorage.setItem(PROJECTS_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('portfolio_data_updated'));
-    try { saveCloudDoc('projects', newProject.id, newProject); } catch (e) {}
+    syncProjectsToCloud();
     return newProject;
   } catch (e) {
     console.error("Error adding custom project:", e);
@@ -387,7 +414,7 @@ export const deleteCustomProject = (idOrTitle) => {
     const updated = existing.filter(p => p.id !== idOrTitle && p.title !== idOrTitle);
     localStorage.setItem(PROJECTS_KEY, JSON.stringify(updated));
     window.dispatchEvent(new Event('portfolio_data_updated'));
-    try { deleteCloudDoc('projects', idOrTitle); } catch (e) {}
+    syncProjectsToCloud();
     return true;
   } catch (e) {
     console.error("Error deleting custom project:", e);
@@ -481,10 +508,7 @@ export const updateCertificate = (id, updatedFields) => {
       localStorage.setItem(OVERRIDES_CERTS_KEY, JSON.stringify(overrides));
     }
     window.dispatchEvent(new Event('portfolio_data_updated'));
-    try {
-      const fullCert = getEffectiveCertificates().find(c => c.id === id);
-      if (fullCert) saveCloudDoc('certificates', id, fullCert);
-    } catch (e) {}
+    syncCertificatesToCloud();
     return true;
   } catch (e) {
     console.error("Error updating certificate:", e);
@@ -515,10 +539,7 @@ export const updateProject = (idOrTitle, updatedFields) => {
       localStorage.setItem(OVERRIDES_PROJECTS_KEY, JSON.stringify(overrides));
     }
     window.dispatchEvent(new Event('portfolio_data_updated'));
-    try {
-      const fullProj = getEffectiveProjects().find(p => p.id === idOrTitle || p.title === idOrTitle);
-      if (fullProj) saveCloudDoc('projects', fullProj.id || idOrTitle, fullProj);
-    } catch (e) {}
+    syncProjectsToCloud();
     return true;
   } catch (e) {
     console.error("Error updating project:", e);
@@ -539,6 +560,7 @@ export const deleteCertificate = (id) => {
         const updated = [...deleted, id];
         localStorage.setItem(DELETED_CERTS_KEY, JSON.stringify(updated));
         window.dispatchEvent(new Event('portfolio_data_updated'));
+        syncCertificatesToCloud();
       }
     }
     return true;
@@ -560,6 +582,7 @@ export const deleteProject = (idOrTitle) => {
         const updated = [...deleted, idOrTitle];
         localStorage.setItem(DELETED_PROJECTS_KEY, JSON.stringify(updated));
         window.dispatchEvent(new Event('portfolio_data_updated'));
+        syncProjectsToCloud();
       }
     }
     return true;
@@ -574,6 +597,7 @@ export const restoreDeletedCertificates = () => {
     localStorage.removeItem(DELETED_CERTS_KEY);
     localStorage.removeItem(OVERRIDES_CERTS_KEY);
     window.dispatchEvent(new Event('portfolio_data_updated'));
+    syncCertificatesToCloud();
     return true;
   } catch (e) {
     return false;
@@ -585,6 +609,7 @@ export const restoreDeletedProjects = () => {
     localStorage.removeItem(DELETED_PROJECTS_KEY);
     localStorage.removeItem(OVERRIDES_PROJECTS_KEY);
     window.dispatchEvent(new Event('portfolio_data_updated'));
+    syncProjectsToCloud();
     return true;
   } catch (e) {
     return false;
@@ -1092,19 +1117,37 @@ export const initCloudSync = () => {
   console.info("🔥 Activating Firebase Cloud Synchronization...");
 
   try {
-    // 1. Certificates Real-Time Sync
-    const unsubCerts = subscribeToCollection('certificates', (cloudCerts) => {
-      if (Array.isArray(cloudCerts) && cloudCerts.length > 0) {
-        localStorage.setItem(CERTS_KEY, JSON.stringify(cloudCerts));
+    // 1. Certificates Real-Time Sync (custom + deleted + overrides)
+    const unsubCerts = subscribeToCollection('certificates_data', (docs) => {
+      const docMain = docs.find(d => d.id === 'main');
+      if (docMain) {
+        if (Array.isArray(docMain.customCertificates)) {
+          localStorage.setItem(CERTS_KEY, JSON.stringify(docMain.customCertificates));
+        }
+        if (Array.isArray(docMain.deletedCertIds)) {
+          localStorage.setItem(DELETED_CERTS_KEY, JSON.stringify(docMain.deletedCertIds));
+        }
+        if (docMain.certOverrides) {
+          localStorage.setItem(OVERRIDES_CERTS_KEY, JSON.stringify(docMain.certOverrides));
+        }
         window.dispatchEvent(new Event('portfolio_data_updated'));
       }
     });
     activeCloudSubscriptions.push(unsubCerts);
 
-    // 2. Projects Real-Time Sync
-    const unsubProjects = subscribeToCollection('projects', (cloudProjects) => {
-      if (Array.isArray(cloudProjects) && cloudProjects.length > 0) {
-        localStorage.setItem(PROJECTS_KEY, JSON.stringify(cloudProjects));
+    // 2. Projects Real-Time Sync (custom + deleted + overrides)
+    const unsubProjects = subscribeToCollection('projects_data', (docs) => {
+      const docMain = docs.find(d => d.id === 'main');
+      if (docMain) {
+        if (Array.isArray(docMain.customProjects)) {
+          localStorage.setItem(PROJECTS_KEY, JSON.stringify(docMain.customProjects));
+        }
+        if (Array.isArray(docMain.deletedProjectIds)) {
+          localStorage.setItem(DELETED_PROJECTS_KEY, JSON.stringify(docMain.deletedProjectIds));
+        }
+        if (docMain.projectOverrides) {
+          localStorage.setItem(OVERRIDES_PROJECTS_KEY, JSON.stringify(docMain.projectOverrides));
+        }
         window.dispatchEvent(new Event('portfolio_data_updated'));
       }
     });
@@ -1176,15 +1219,8 @@ export const uploadAllLocalDataToCloud = async () => {
     throw new Error("Firebase is not configured. Please enter your Firebase Configuration first.");
   }
 
-  const customCerts = getCustomCertificates();
-  for (const cert of customCerts) {
-    await saveCloudDoc('certificates', cert.id, cert);
-  }
-
-  const customProjects = getCustomProjects();
-  for (const proj of customProjects) {
-    await saveCloudDoc('projects', proj.id, proj);
-  }
+  await syncProjectsToCloud();
+  await syncCertificatesToCloud();
 
   const skills = getSkillsData();
   await saveCloudDoc('skills', 'main', { categories: skills });

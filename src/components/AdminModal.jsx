@@ -376,6 +376,34 @@ const AdminModal = ({ isOpen, onClose }) => {
     setActionSuccess('Admin session terminated safely.');
   };
 
+  // Compress image to ensure small lightweight base64 (<100KB) for lightning-fast Cloud Firestore sync
+  const compressImageFile = (file, maxWidth = 900, quality = 0.75) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => resolve(event.target.result);
+        img.src = event.target.result;
+      };
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Secure Image Upload with Deep Magic Bytes & MIME Inspection
   const handleImageUpload = async (e, targetForm) => {
     const file = e.target.files[0];
@@ -389,15 +417,12 @@ const AdminModal = ({ isOpen, onClose }) => {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (targetForm === 'cert') {
-        setCertForm(prev => ({ ...prev, image: reader.result }));
-      } else {
-        setProjectForm(prev => ({ ...prev, image: reader.result }));
-      }
-    };
-    reader.readAsDataURL(file);
+    const compressed = await compressImageFile(file);
+    if (targetForm === 'cert') {
+      setCertForm(prev => ({ ...prev, image: compressed }));
+    } else {
+      setProjectForm(prev => ({ ...prev, image: compressed }));
+    }
   };
 
   // Submit Certificate
@@ -516,11 +541,8 @@ const AdminModal = ({ isOpen, onClose }) => {
         e.target.value = '';
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditCertForm(prev => ({ ...prev, image: reader.result }));
-      };
-      reader.readAsDataURL(file);
+      const compressed = await compressImageFile(file);
+      setEditCertForm(prev => ({ ...prev, image: compressed }));
     }
   };
 
@@ -564,11 +586,8 @@ const AdminModal = ({ isOpen, onClose }) => {
         e.target.value = '';
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditProjectForm(prev => ({ ...prev, image: reader.result }));
-      };
-      reader.readAsDataURL(file);
+      const compressed = await compressImageFile(file);
+      setEditProjectForm(prev => ({ ...prev, image: compressed }));
     }
   };
 
