@@ -115,6 +115,29 @@ const Contact = () => {
       window.location.href = `mailto:${toEmail}?subject=${cleanSub}&body=${cleanBody}`;
       return;
     }
+
+    // Desktop: Launch dedicated Gmail App window
+    if (e && e.preventDefault) e.preventDefault();
+    const gmailAppUrl = `https://mail.google.com/mail/u/0/?view=cm&fs=1&tf=1&to=${encodeURIComponent(toEmail)}&su=${cleanSub}&body=${cleanBody}`;
+    const width = 840;
+    const height = 700;
+    const left = typeof window !== 'undefined' && window.screen?.width ? Math.max(0, (window.screen.width - width) / 2) : 100;
+    const top = typeof window !== 'undefined' && window.screen?.height ? Math.max(0, (window.screen.height - height) / 2) : 100;
+    
+    try {
+      const appWin = window.open(
+        gmailAppUrl,
+        'GmailAppWindow',
+        `width=${width},height=${height},top=${top},left=${left},status=no,menubar=no,toolbar=no,location=no,resizable=yes,scrollbars=yes`
+      );
+      if (!appWin || appWin.closed || typeof appWin.closed === 'undefined') {
+        window.open(gmailAppUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        appWin.focus();
+      }
+    } catch {
+      window.open(gmailAppUrl, '_blank', 'noopener,noreferrer');
+    }
   };
 
   const getDirectEmailHref = (subject, body) => {
@@ -127,7 +150,7 @@ const Contact = () => {
     if (isMobile) {
       return `mailto:${toEmail}?subject=${cleanSub}&body=${cleanBody}`;
     }
-    return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(toEmail)}&su=${cleanSub}&body=${cleanBody}`;
+    return `https://mail.google.com/mail/u/0/?view=cm&fs=1&tf=1&to=${encodeURIComponent(toEmail)}&su=${cleanSub}&body=${cleanBody}`;
   };
 
   const handleChange = (e) => {
@@ -388,11 +411,11 @@ const Contact = () => {
                 target={isMobile ? undefined : "_blank"}
                 rel="noreferrer"
                 className="glass-panel p-3 sm:p-4 rounded-xl flex items-center justify-between group cursor-pointer hover:border-cyber-blue/50 transition-colors"
-                title={isMobile ? "Open in Gmail App" : "Send pre-filled message via Gmail"}
+                title="Open in Gmail App"
               >
                 <div className="min-w-0">
                   <h4 className="font-orbitron text-cyber-blue text-xs sm:text-sm font-bold truncate">Direct Gmail</h4>
-                  <p className="text-[10px] text-gray-400 hidden xs:block">{isMobile ? "Open Gmail app" : "Open client"}</p>
+                  <p className="text-[10px] text-gray-400 hidden xs:block">Open Gmail app</p>
                 </div>
                 <div className="w-8 h-8 rounded-full bg-cyber-blue/10 flex items-center justify-center flex-shrink-0 group-hover:bg-cyber-blue/20">
                   <Mail className="text-cyber-blue" size={16} />
