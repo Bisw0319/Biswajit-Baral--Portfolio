@@ -307,30 +307,102 @@ export const getCustomCertificates = () => {
   }
 };
 
+// Lightweight base64 image compressor for browser environment
+export const compressDataUrl = (dataUrl, maxWidth = 800, quality = 0.72) => {
+  return new Promise((resolve) => {
+    if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image')) {
+      return resolve(dataUrl);
+    }
+    // If already under 100KB, keep as is
+    if (dataUrl.length < 100000) {
+      return resolve(dataUrl);
+    }
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return resolve(dataUrl);
+    }
+    try {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          const result = canvas.toDataURL('image/jpeg', quality);
+          resolve(result);
+        } catch (err) {
+          resolve(dataUrl);
+        }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    } catch (e) {
+      resolve(dataUrl);
+    }
+  });
+};
+
 // Cloud State Synchronization Helpers for Collections
 export const syncProjectsToCloud = async () => {
   try {
+    const rawProjects = getCustomProjects();
+    // Compress any large images before sending to cloud
+    const compressedProjects = await Promise.all(
+      rawProjects.map(async (p) => {
+        if (p.image && p.image.length > 100000) {
+          const smallImg = await compressDataUrl(p.image);
+          return { ...p, image: smallImg };
+        }
+        return p;
+      })
+    );
+    // Update local storage with compressed version
+    localStorage.setItem(PROJECTS_KEY, JSON.stringify(compressedProjects));
+
     const payload = {
-      customProjects: getCustomProjects(),
+      customProjects: compressedProjects,
       deletedProjectIds: getDeletedProjectIds(),
       projectOverrides: getProjectOverrides()
     };
     await saveCloudDoc('projects_data', 'main', payload);
+    return true;
   } catch (e) {
-    console.warn("Could not sync projects to cloud:", e);
+    console.error("Could not sync projects to cloud:", e);
+    throw e;
   }
 };
 
 export const syncCertificatesToCloud = async () => {
   try {
+    const rawCerts = getCustomCertificates();
+    const compressedCerts = await Promise.all(
+      rawCerts.map(async (c) => {
+        if (c.image && c.image.length > 100000) {
+          const smallImg = await compressDataUrl(c.image);
+          return { ...c, image: smallImg };
+        }
+        return c;
+      })
+    );
+    localStorage.setItem(CERTS_KEY, JSON.stringify(compressedCerts));
+
     const payload = {
-      customCertificates: getCustomCertificates(),
+      customCertificates: compressedCerts,
       deletedCertIds: getDeletedCertificateIds(),
       certOverrides: getCertOverrides()
     };
     await saveCloudDoc('certificates_data', 'main', payload);
+    return true;
   } catch (e) {
-    console.warn("Could not sync certificates to cloud:", e);
+    console.error("Could not sync certificates to cloud:", e);
+    throw e;
   }
 };
 

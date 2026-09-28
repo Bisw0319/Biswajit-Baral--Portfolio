@@ -143,15 +143,16 @@ export const subscribeToCollection = (collectionName, callback) => {
 // Cloud Document Save
 export const saveCloudDoc = async (collectionName, docId, data) => {
   const db = getFirebaseDb();
-  if (!db) return false;
+  if (!db) throw new Error("Firebase Database is not connected.");
 
   try {
     const docRef = doc(db, collectionName, String(docId));
-    await setDoc(docRef, { ...data, updatedAt: new Date().toISOString() }, { merge: true });
+    const cleanData = JSON.parse(JSON.stringify(data));
+    await setDoc(docRef, { ...cleanData, updatedAt: new Date().toISOString() }, { merge: true });
     return true;
   } catch (e) {
-    console.warn(`Failed to save cloud document ${collectionName}/${docId}:`, e);
-    return false;
+    console.error(`Failed to save cloud document ${collectionName}/${docId}:`, e);
+    throw e;
   }
 };
 
