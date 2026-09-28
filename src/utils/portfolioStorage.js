@@ -1024,6 +1024,7 @@ export const DEFAULT_CONTACT_DATA = {
   location: "Balugaon, Khordha, Odisha, India",
   ctaTitle: "Direct Neural Link",
   ctaSubtitle: "Chat directly via WhatsApp",
+  defaultChatMessage: "Hey Biswa, can we talk? 👋 Let's connect! 💬",
   socials: [
     { id: "github", platform: "GitHub", url: "https://github.com/Bisw0319", icon: "FaGithub" },
     { id: "linkedin", platform: "LinkedIn", url: "https://www.linkedin.com/in/biswajit-baral-abb842325/?skipRedirect=true", icon: "FaLinkedin" },

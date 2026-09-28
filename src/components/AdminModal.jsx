@@ -3081,6 +3081,22 @@ const AdminModal = ({ isOpen, onClose }) => {
                           className="w-full px-3 py-2 rounded-lg bg-black/60 border border-white/15 text-white font-mono text-xs focus:border-pink-400 focus:outline-none"
                         />
                       </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="block text-[10px] font-orbitron text-gray-400 uppercase mb-1">
+                          Default Pre-chat Message (WhatsApp & Chat Box)
+                        </label>
+                        <input
+                          type="text"
+                          value={contactForm.defaultChatMessage || ''}
+                          onChange={(e) => setContactForm({ ...contactForm, defaultChatMessage: e.target.value })}
+                          placeholder="Hey Biswa, can we talk? 👋 Let's connect! 💬"
+                          className="w-full px-3 py-2 rounded-lg bg-black/60 border border-white/15 text-white font-mono text-xs focus:border-pink-400 focus:outline-none"
+                        />
+                        <span className="text-[9px] text-gray-500 mt-1 block">
+                          Automatically pre-pasted in WhatsApp, Gmail, and the contact message box when visitors connect.
+                        </span>
+                      </div>
                     </div>
 
                     <button

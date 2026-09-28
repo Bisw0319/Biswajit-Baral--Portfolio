@@ -21,17 +21,28 @@ import {
   getOrCreateCsrfToken 
 } from '../utils/security';
 
+const DEFAULT_PRECHAT_MESSAGE = "Hey Biswa, can we talk? 👋 Let's connect! 💬";
+
 const Contact = () => {
   const [contactData, setContactData] = useState(getContactData());
+  const initialMessage = contactData.defaultChatMessage || DEFAULT_PRECHAT_MESSAGE;
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    message: ''
+    message: initialMessage
   });
 
   useEffect(() => {
     const handleUpdate = () => {
-      setContactData(getContactData());
+      const updated = getContactData();
+      setContactData(updated);
+      setFormData(prev => {
+        const fallback = updated.defaultChatMessage || DEFAULT_PRECHAT_MESSAGE;
+        if (!prev.message || prev.message === DEFAULT_PRECHAT_MESSAGE) {
+          return { ...prev, message: fallback };
+        }
+        return prev;
+      });
     };
     window.addEventListener('portfolio_data_updated', handleUpdate);
     return () => window.removeEventListener('portfolio_data_updated', handleUpdate);
@@ -267,10 +278,11 @@ const Contact = () => {
             {/* Direct Connect Quick CTAs - Side-by-Side Row-Wise on Mobile */}
             <div className="grid grid-cols-2 gap-2.5">
               <a
-                href={`https://wa.me/${(contactData.whatsappNumber || "9124160550").replace(/[^0-9]/g, '')}`}
+                href={`https://wa.me/${(contactData.whatsappNumber || "9124160550").replace(/[^0-9]/g, '')}?text=${encodeURIComponent(contactData.defaultChatMessage || DEFAULT_PRECHAT_MESSAGE)}`}
                 target="_blank"
                 rel="noreferrer"
                 className="glass-panel p-3 sm:p-4 rounded-xl flex items-center justify-between group cursor-pointer hover:border-cyber-yellow/50 transition-colors"
+                title="Chat with Biswajit on WhatsApp"
               >
                 <div className="min-w-0">
                   <h4 className="font-orbitron text-cyber-yellow text-xs sm:text-sm font-bold truncate">WhatsApp Direct</h4>
@@ -282,10 +294,11 @@ const Contact = () => {
               </a>
 
               <a
-                href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(contactData.email || 'freelixir.b@gmail.com')}&su=${encodeURIComponent('Portfolio Inquiry for Biswajit Baral')}`}
+                href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(contactData.email || 'freelixir.b@gmail.com')}&su=${encodeURIComponent('Portfolio Inquiry for Biswajit Baral')}&body=${encodeURIComponent(contactData.defaultChatMessage || DEFAULT_PRECHAT_MESSAGE)}`}
                 target="_blank"
                 rel="noreferrer"
                 className="glass-panel p-3 sm:p-4 rounded-xl flex items-center justify-between group cursor-pointer hover:border-cyber-blue/50 transition-colors"
+                title="Send pre-filled message via Gmail"
               >
                 <div className="min-w-0">
                   <h4 className="font-orbitron text-cyber-blue text-xs sm:text-sm font-bold truncate">Direct Gmail</h4>
@@ -493,7 +506,49 @@ const Contact = () => {
                   </div>
 
                   <div className="flex-grow flex flex-col">
-                    <label className="block text-xs font-orbitron text-gray-400 uppercase mb-1.5">Payload_Data</label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-orbitron text-gray-400 uppercase">Payload_Data</label>
+                      <span className="text-[10px] font-mono text-cyber-blue hidden xs:inline-block">Quick Pre-chat Prompts:</span>
+                    </div>
+
+                    {/* Pre-chat Quick Action Chips */}
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, message: contactData.defaultChatMessage || DEFAULT_PRECHAT_MESSAGE })}
+                        className="text-[11px] font-mono px-2.5 py-1 rounded-md bg-cyber-blue/15 hover:bg-cyber-blue/30 text-cyber-blue border border-cyber-blue/40 transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+                        title="Paste pre-chat prompt"
+                      >
+                        <span>👋 "Hey Biswa, can we talk?"</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, message: "Hey Biswa, let's discuss a project! 💻🚀" })}
+                        className="text-[11px] font-mono px-2.5 py-1 rounded-md bg-purple-500/15 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+                        title="Paste project prompt"
+                      >
+                        <span>💻 "Project Inquiry"</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, message: "Hey Biswa, are you available for freelance work? ✨" })}
+                        className="text-[11px] font-mono px-2.5 py-1 rounded-md bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+                        title="Paste freelance prompt"
+                      >
+                        <span>🚀 "Freelance Work"</span>
+                      </button>
+                      {formData.message && (
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, message: '' })}
+                          className="text-[10px] font-mono px-2 py-1 rounded-md bg-white/5 hover:bg-cyber-red/20 text-gray-400 hover:text-cyber-red border border-white/10 hover:border-cyber-red/30 transition-all cursor-pointer ml-auto"
+                          title="Clear message box"
+                        >
+                          <span>Clear ✕</span>
+                        </button>
+                      )}
+                    </div>
+
                     <textarea
                       name="message"
                       value={formData.message}
@@ -502,7 +557,7 @@ const Contact = () => {
                       disabled={isSubmitting}
                       rows="3"
                       className="w-full flex-grow bg-cyber-dark/50 border border-white/10 rounded-lg px-3.5 py-2.5 sm:px-4 sm:py-3 text-white font-mono text-xs sm:text-sm focus:outline-none focus:border-cyber-blue focus:shadow-[0_0_10px_rgba(0,240,255,0.2)] transition-all resize-none disabled:opacity-50"
-                      placeholder="Type your message here..."
+                      placeholder={contactData.defaultChatMessage || DEFAULT_PRECHAT_MESSAGE}
                     ></textarea>
                   </div>
                 </div>
@@ -534,7 +589,7 @@ const Contact = () => {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <a
-                      href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(contactData.email || 'freelixir.b@gmail.com')}&su=${encodeURIComponent('Portfolio Message from ' + (formData.name || 'Visitor'))}&body=${encodeURIComponent('From: ' + (formData.name || 'Visitor') + ' (' + (formData.email || 'No email') + ')\n\nMessage:\n' + (formData.message || ''))}`}
+                      href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(contactData.email || 'freelixir.b@gmail.com')}&su=${encodeURIComponent('Portfolio Message from ' + (formData.name || 'Visitor'))}&body=${encodeURIComponent('From: ' + (formData.name || 'Visitor') + ' (' + (formData.email || 'No email') + ')\n\nMessage:\n' + (formData.message || contactData.defaultChatMessage || DEFAULT_PRECHAT_MESSAGE))}`}
                       target="_blank"
                       rel="noreferrer"
                       className="px-3 py-2 rounded-lg bg-cyber-blue/15 hover:bg-cyber-blue text-cyber-blue hover:text-black border border-cyber-blue/40 text-xs font-orbitron font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm"
@@ -546,7 +601,7 @@ const Contact = () => {
                     </a>
 
                     <a
-                      href={`https://wa.me/${(contactData.whatsappNumber || "9124160550").replace(/[^0-9]/g, '')}?text=${encodeURIComponent('🚀 Transmission from ' + (formData.name || 'Visitor') + ' (' + (formData.email || 'No email') + '):\n\n' + (formData.message || ''))}`}
+                      href={`https://wa.me/${(contactData.whatsappNumber || "9124160550").replace(/[^0-9]/g, '')}?text=${encodeURIComponent(formData.message ? ('🚀 Transmission from ' + (formData.name || 'Visitor') + ' (' + (formData.email || 'No email') + '):\n\n' + formData.message) : (contactData.defaultChatMessage || DEFAULT_PRECHAT_MESSAGE))}`}
                       target="_blank"
                       rel="noreferrer"
                       className="px-3 py-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-400 text-emerald-400 hover:text-black border border-emerald-500/40 text-xs font-orbitron font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm"

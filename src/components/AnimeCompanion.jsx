@@ -168,6 +168,25 @@ const AnimeCompanion = () => {
                 )}
               </div>
 
+              {/* Direct Quick Chat Action */}
+              <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between">
+                <span className="text-[10px] font-mono text-gray-400">Direct Connect:</span>
+                <a
+                  href={`https://wa.me/9124160550?text=${encodeURIComponent("Hey Biswa, can we talk? 👋 Let's connect! 💬")}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    try { playClick?.(); } catch {}
+                  }}
+                  onMouseEnter={() => playHover?.()}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-cyber-blue/15 hover:bg-cyber-blue text-cyber-blue hover:text-black border border-cyber-blue/40 text-[10px] font-orbitron font-bold transition-all shadow-sm cursor-pointer"
+                  title="Direct WhatsApp Chat with Biswajit"
+                >
+                  <span>Let's Talk 👋</span>
+                </a>
+              </div>
+
               {/* Speech Bubble Arrow pointing to character */}
               <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-3.5 h-3.5 bg-cyber-dark border-r border-b border-cyber-blue/60 rotate-45"></div>
             </motion.div>
