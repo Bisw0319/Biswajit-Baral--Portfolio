@@ -3486,7 +3486,7 @@ const AdminModal = ({ isOpen, onClose }) => {
                         rows={6}
                         value={cloudConfigInput}
                         onChange={(e) => setCloudConfigInput(e.target.value)}
-                        placeholder={`const firebaseConfig = {\n  apiKey: "AIzaSy...",\n  authDomain: "portfolio.firebaseapp.com",\n  projectId: "your-project-id",\n  storageBucket: "...",\n  messagingSenderId: "...",\n  appId: "..."\n};`}
+                        placeholder={`const firebaseConfig = {\n  apiKey: "your-api-key",\n  authDomain: "portfolio.firebaseapp.com",\n  projectId: "your-project-id",\n  storageBucket: "...",\n  messagingSenderId: "...",\n  appId: "..."\n};`}
                         className="w-full px-4 py-3 rounded-xl bg-black/60 border border-white/15 text-white font-mono text-xs focus:border-amber-400 focus:outline-none placeholder-gray-600"
                       />
                     </div>
