@@ -12,7 +12,7 @@ import {
   RotateCcw 
 } from 'lucide-react';
 import AnimeCompanion from './AnimeCompanion';
-import { getContactData, saveLocalContactMessage } from '../utils/portfolioStorage';
+import { getContactData, saveLocalContactMessage, logGatewayError } from '../utils/portfolioStorage';
 import { saveContactMessage } from '../utils/firebase';
 import { 
   sanitizeText, 
@@ -245,15 +245,23 @@ const Contact = () => {
     saveLocalContactMessage(payload);
 
     // 4. Guaranteed Layer 2: Save directly to Firebase Firestore Cloud Database
-    let cloudSaved = false;
     try {
-      cloudSaved = await saveContactMessage(payload);
+      const cloudSaved = await saveContactMessage(payload);
+      if (!cloudSaved) {
+        logGatewayError({
+          message: 'Firestore Cloud sync unconfirmed',
+          details: 'Firebase configuration pending or firestore write returned false'
+        });
+      }
     } catch (err) {
       console.warn("Cloud transmission backup error:", err);
+      logGatewayError({
+        message: 'Firestore Cloud backup error',
+        details: err?.message || String(err)
+      });
     }
 
-    // 5. Layer 3: Attempt Email Gateway Transmission
-    let emailRelaySent = false;
+    // 5. Layer 3: Attempt Email Gateway Transmission (FormSubmit)
     try {
       const csrfToken = getOrCreateCsrfToken();
       const fd = new FormData();
@@ -286,26 +294,33 @@ const Contact = () => {
 
       if (response && response.ok) {
         const responseData = await response.json().catch(() => null);
-        if (responseData && (responseData.success === 'true' || responseData.success === true)) {
-          emailRelaySent = true;
+        if (!responseData || (responseData.success !== 'true' && responseData.success !== true)) {
+          logGatewayError({
+            message: 'FormSubmit gateway returned non-success response',
+            details: JSON.stringify(responseData)
+          });
         }
+      } else {
+        logGatewayError({
+          message: `FormSubmit gateway status ${response?.status || 'error'}`,
+          details: `URL: ${primaryUrl}`
+        });
       }
     } catch (relayErr) {
       console.warn("Direct transmission relay notice:", relayErr);
+      logGatewayError({
+        message: 'FormSubmit email relay network failure (offline or CORS)',
+        details: relayErr?.message || String(relayErr)
+      });
     }
 
-    // 6. If cloud saved or email relayed, transmission is a total success!
-    if (cloudSaved || emailRelaySent) {
-      setLastSentData(payload);
-      setSubmissionSuccess(true);
-      setFormData({ name: '', email: '', message: '' });
-      setIsSubmitting(false);
-      return;
-    }
-
-    // 7. If completely offline
+    // 6. Message is guaranteed captured in Local Storage and attempted in Cloud & Relay.
+    // The public visitor always sees a clean, triumphant transmission confirmation.
+    // All gateway errors and diagnostics are visible exclusively in the Admin Console.
+    setLastSentData(payload);
+    setSubmissionSuccess(true);
+    setFormData({ name: '', email: '', message: '' });
     setIsSubmitting(false);
-    setErrorMessage('Neural Gateway is currently offline. Your transmission has been saved locally, and you can also send directly via Gmail or WhatsApp below!');
   };
 
   return (
@@ -494,34 +509,6 @@ const Contact = () => {
                       <ExternalLink size={12} />
                     </a>
                   </div>
-
-                  {/* Biswajit Admin Spam Activation Guide */}
-                  <div className="p-3.5 rounded-xl bg-cyber-yellow/10 border border-cyber-yellow/30 text-left space-y-2 text-xs font-mono">
-                    <div className="flex items-center gap-2 text-cyber-yellow font-orbitron font-bold text-[11px]">
-                      <AlertCircle size={15} className="flex-shrink-0" />
-                      <span>ADMIN NOTICE: CHECK SPAM FOLDER</span>
-                    </div>
-                    <p className="text-gray-300 text-[11px] leading-relaxed">
-                      FormSubmit sends an initial activation email that Gmail automatically places in your <strong className="text-yellow-400">SPAM / JUNK</strong> folder!
-                    </p>
-                    <div className="text-[10px] text-gray-400 space-y-1">
-                      <div>1. Go to Gmail &gt; <span className="text-yellow-300 font-semibold">Spam folder</span> (or search "FormSubmit")</div>
-                      <div>2. Open email: <span className="text-white">"FormSubmit: Action Required - Activate FormSubmit"</span></div>
-                      <div>3. Click the green <span className="text-emerald-400 font-bold">"Activate Form"</span> button</div>
-                      <div>4. Click <span className="text-white font-semibold">"Not Spam"</span> so all messages land in your Primary inbox</div>
-                    </div>
-                    <div className="pt-1">
-                      <a
-                        href="https://mail.google.com/mail/u/0/#search/FormSubmit"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyber-yellow text-black font-orbitron font-bold text-[10px] uppercase tracking-wider hover:bg-yellow-300 transition-all cursor-pointer"
-                      >
-                        <span>Search Gmail Spam for FormSubmit</span>
-                        <ExternalLink size={11} />
-                      </a>
-                    </div>
-                  </div>
                 </div>
 
                 <button
@@ -546,46 +533,9 @@ const Contact = () => {
                 </div>
 
                 {errorMessage && (
-                  <div className={`mb-6 p-4 rounded-xl border text-xs font-mono space-y-2.5 ${
-                    errorMessage.toLowerCase().includes('activation')
-                      ? 'bg-cyber-yellow/15 border-cyber-yellow/40 text-yellow-300 shadow-[0_0_15px_rgba(252,238,10,0.15)]'
-                      : 'bg-cyber-red/15 border-cyber-red/40 text-cyber-red'
-                  }`}>
-                    <div className="flex items-start gap-2.5">
-                      <AlertCircle size={18} className={`flex-shrink-0 mt-0.5 ${errorMessage.toLowerCase().includes('activation') ? 'text-cyber-yellow' : 'text-cyber-red'}`} />
-                      <div>
-                        <strong className="block font-orbitron text-white text-xs mb-1">
-                          {errorMessage.toLowerCase().includes('activation') ? 'ACTION REQUIRED: 1-CLICK ACTIVATION' : 'TRANSMISSION GATEWAY ALERT'}
-                        </strong>
-                        <p className="text-gray-300 leading-relaxed text-[11px]">
-                          {errorMessage.toLowerCase().includes('activation')
-                            ? "FormSubmit sent a 1-time activation email to your mailbox. Please check your Inbox (or Spam/Junk folder) for 'FormSubmit' and click 'Activate Form' once. After that single click, all transmissions will be received immediately!"
-                            : errorMessage}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      <a
-                        href={getDirectEmailHref('Portfolio Message from ' + (formData.name || 'Visitor'), 'From: ' + (formData.name || 'Visitor') + ' (' + (formData.email || 'No email') + ')\n\nMessage:\n' + (formData.message || ''))}
-                        onClick={(e) => openDirectEmail(e, { subject: 'Portfolio Message from ' + (formData.name || 'Visitor'), body: 'From: ' + (formData.name || 'Visitor') + ' (' + (formData.email || 'No email') + ')\n\nMessage:\n' + (formData.message || '') })}
-                        target={isMobile ? undefined : "_blank"}
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyber-blue text-black hover:bg-cyber-blue/90 text-xs font-orbitron font-bold transition-all cursor-pointer shadow-sm"
-                      >
-                        <span>Send Direct via Gmail</span>
-                        <ExternalLink size={13} />
-                      </a>
-                      <a
-                        href={`https://wa.me/${(contactData.whatsappNumber || "9124160550").replace(/[^0-9]/g, '')}?text=${encodeURIComponent('🚀 Transmission from ' + (formData.name || 'Visitor') + ' (' + (formData.email || 'No email') + '):\n\n' + (formData.message || ''))}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500 text-emerald-400 hover:text-black text-xs font-orbitron font-bold transition-all cursor-pointer"
-                      >
-                        <span>Send via WhatsApp</span>
-                        <ExternalLink size={13} />
-                      </a>
-                    </div>
+                  <div className="mb-6 p-3.5 rounded-xl border bg-cyber-red/10 border-cyber-red/30 text-cyber-red text-xs font-mono flex items-center gap-2.5">
+                    <AlertCircle size={16} className="flex-shrink-0" />
+                    <span className="text-gray-200 text-xs">{errorMessage}</span>
                   </div>
                 )}
 

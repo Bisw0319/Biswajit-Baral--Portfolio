@@ -101,7 +101,9 @@ import {
   importFullPortfolioData,
   initCloudSync,
   getStoredContactMessages,
-  deleteLocalContactMessage
+  deleteLocalContactMessage,
+  getGatewayErrors,
+  clearGatewayErrors
 } from '../utils/portfolioStorage';
 import { getCloudCollection, deleteCloudDoc } from '../utils/firebase';
 
@@ -236,6 +238,23 @@ const AdminModal = ({ isOpen, onClose }) => {
   // Contact Messages State
   const [receivedMessages, setReceivedMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
+
+  // Gateway Error Diagnostics State (Internal Admin Only)
+  const [gatewayErrors, setGatewayErrors] = useState(() => getGatewayErrors());
+
+  useEffect(() => {
+    const handleErrUpdate = () => setGatewayErrors(getGatewayErrors());
+    window.addEventListener('portfolio_gateway_errors_updated', handleErrUpdate);
+    return () => window.removeEventListener('portfolio_gateway_errors_updated', handleErrUpdate);
+  }, []);
+
+  const handleClearGatewayErrors = () => {
+    try { playClick?.(); } catch {}
+    if (window.confirm("Clear all recorded gateway and transmission error diagnostics?")) {
+      clearGatewayErrors();
+      setGatewayErrors([]);
+    }
+  };
 
   const loadMessages = useCallback(async () => {
     setLoadingMessages(true);
@@ -3327,6 +3346,98 @@ const AdminModal = ({ isOpen, onClose }) => {
                                   <ExternalLink size={10} />
                                 </a>
                               </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 4. FormSubmit Gateway Activation & Spam Deliverability Guide */}
+                  <div className="p-4 rounded-xl border border-cyber-yellow/40 bg-cyber-yellow/10 space-y-3">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                      <div className="flex items-center gap-2 text-cyber-yellow font-orbitron font-bold text-xs">
+                        <AlertCircle size={16} className="flex-shrink-0" />
+                        <span>ADMIN ACTION: FORMSUBMIT ACTIVATION & SPAM FOLDER GUIDE</span>
+                      </div>
+                      <a
+                        href="https://mail.google.com/mail/u/0/#search/FormSubmit"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyber-yellow text-black font-orbitron font-bold text-[10px] uppercase tracking-wider hover:bg-yellow-300 transition-all cursor-pointer"
+                      >
+                        <span>Search Gmail Spam for FormSubmit</span>
+                        <ExternalLink size={11} />
+                      </a>
+                    </div>
+                    <p className="text-gray-300 text-xs font-mono leading-relaxed">
+                      FormSubmit sends an initial activation email that Gmail automatically places in your <strong className="text-yellow-400">SPAM / JUNK</strong> folder! Until activated, email relays may remain pending.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono text-gray-300 bg-black/40 p-3 rounded-lg border border-white/5">
+                      <div>1. Open Gmail &gt; <strong className="text-yellow-300">Spam folder</strong></div>
+                      <div>2. Find: <strong className="text-white">"FormSubmit: Action Required - Activate FormSubmit"</strong></div>
+                      <div>3. Click the green <strong className="text-emerald-400">"Activate Form"</strong> button</div>
+                      <div>4. Mark <strong className="text-white">"Not Spam"</strong> so all messages land in your Primary inbox</div>
+                    </div>
+                  </div>
+
+                  {/* 5. System & Gateway Error Diagnostics */}
+                  <div className="p-4 rounded-xl border border-cyber-red/30 bg-black/50 space-y-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-white/10">
+                      <div>
+                        <h5 className="text-white font-orbitron text-xs font-bold flex items-center gap-2">
+                          <Terminal size={15} className="text-cyber-red" />
+                          <span>Gateway & System Diagnostics ({gatewayErrors.length})</span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded font-mono ${
+                            gatewayErrors.length === 0 
+                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' 
+                              : 'bg-cyber-red/15 text-cyber-red border border-cyber-red/30'
+                          }`}>
+                            {gatewayErrors.length === 0 ? 'ALL SYSTEMS NORMAL' : `${gatewayErrors.length} ERRORS LOGGED`}
+                          </span>
+                        </h5>
+                        <p className="text-gray-400 text-[11px] font-inter mt-0.5">
+                          Internal technical logs captured during message transmissions (hidden from visitors, visible only to Admin).
+                        </p>
+                      </div>
+
+                      {gatewayErrors.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearGatewayErrors}
+                          onMouseEnter={() => playHover?.()}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyber-red/40 bg-cyber-red/10 hover:bg-cyber-red/20 text-cyber-red text-xs font-orbitron cursor-pointer transition-colors"
+                        >
+                          <Trash2 size={12} />
+                          <span>Clear Error Logs</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {gatewayErrors.length === 0 ? (
+                      <div className="p-6 text-center border border-dashed border-emerald-500/20 bg-emerald-500/5 rounded-xl text-emerald-400/80 text-xs font-mono space-y-1">
+                        <CheckCircle size={22} className="mx-auto mb-1 text-emerald-400" />
+                        <div className="font-bold">Neural Gateway Status: Optimal</div>
+                        <div className="text-[11px] text-gray-400">No transmission gateway failures or sync errors recorded.</div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                        {gatewayErrors.map((err) => (
+                          <div
+                            key={err.id}
+                            className="p-3 rounded-lg border border-cyber-red/20 bg-cyber-red/5 font-mono text-xs space-y-1"
+                          >
+                            <div className="flex items-center justify-between text-[10px] text-gray-400">
+                              <span className="text-cyber-red font-bold flex items-center gap-1">
+                                <AlertCircle size={11} />
+                                {err.message}
+                              </span>
+                              <span>{err.timestamp ? new Date(err.timestamp).toLocaleString() : 'Recent'}</span>
+                            </div>
+                            {err.details && (
+                              <pre className="text-[11px] text-gray-300 bg-black/60 p-2 rounded border border-white/5 overflow-x-auto whitespace-pre-wrap">
+                                {err.details}
+                              </pre>
                             )}
                           </div>
                         ))}

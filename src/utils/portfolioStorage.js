@@ -1421,3 +1421,44 @@ export const deleteLocalContactMessage = (id) => {
     return false;
   }
 };
+
+const GATEWAY_ERRORS_KEY = 'portfolio_gateway_errors';
+
+export const logGatewayError = (errInfo) => {
+  try {
+    const raw = localStorage.getItem(GATEWAY_ERRORS_KEY);
+    const existing = raw ? JSON.parse(raw) : [];
+    const entry = {
+      id: `err_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      timestamp: new Date().toISOString(),
+      message: typeof errInfo === 'string' ? errInfo : (errInfo.message || 'Unknown Gateway Error'),
+      details: errInfo.details ? String(errInfo.details) : null
+    };
+    const updated = [entry, ...existing].slice(0, 50);
+    localStorage.setItem(GATEWAY_ERRORS_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event('portfolio_gateway_errors_updated'));
+    return entry;
+  } catch {
+    return null;
+  }
+};
+
+export const getGatewayErrors = () => {
+  try {
+    const raw = localStorage.getItem(GATEWAY_ERRORS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const clearGatewayErrors = () => {
+  try {
+    localStorage.removeItem(GATEWAY_ERRORS_KEY);
+    window.dispatchEvent(new Event('portfolio_gateway_errors_updated'));
+    return true;
+  } catch {
+    return false;
+  }
+};
+
