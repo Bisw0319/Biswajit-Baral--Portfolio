@@ -1,5 +1,4 @@
-import React from 'react';
-import { Terminal } from 'lucide-react';
+import { Terminal, Sparkles } from 'lucide-react';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -20,24 +19,39 @@ const Footer = () => {
           </div>
           
           <div className="flex gap-6">
-            <a href="#" className="text-sm font-inter text-gray-500 hover:text-cyber-blue transition-colors uppercase tracking-wider">
+            <a href="#contact" className="text-sm font-inter text-gray-400 hover:text-cyber-blue transition-colors uppercase tracking-wider">
               Transmission
             </a>
-            <a href="#" className="text-sm font-inter text-gray-500 hover:text-cyber-blue transition-colors uppercase tracking-wider">
+            <a href="#skills" className="text-sm font-inter text-gray-400 hover:text-cyber-blue transition-colors uppercase tracking-wider">
               Network
             </a>
-            <a href="#" className="text-sm font-inter text-gray-500 hover:text-cyber-blue transition-colors uppercase tracking-wider">
+            <a href="#projects" className="text-sm font-inter text-gray-400 hover:text-cyber-blue transition-colors uppercase tracking-wider">
               Protocol
             </a>
           </div>
         </div>
         
-        <div className="text-center border-t border-white/5 pt-6 flex flex-col items-center justify-center">
-          <p className="text-gray-500 font-inter text-sm flex items-center gap-2">
-            © {currentYear} <span className="text-cyber-blue font-orbitron">Biswajit Baral</span>. All rights reserved.
-          </p>
-          <div className="mt-2 text-xs text-gray-600 font-mono">
-            CONNECTION_SECURE // PORT_8080 // UPLINK_ESTABLISHED
+        {/* Bottom Bar: Left (Copyright + Crafted by Biswas badge) and Right (CONNECTION_SECURE) */}
+        <div className="border-t border-white/10 pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+            <p className="text-gray-400 font-inter text-xs sm:text-sm flex items-center gap-1.5">
+              © {currentYear} <span className="text-cyber-blue font-orbitron font-semibold">Biswajit Baral</span>. All rights reserved.
+            </p>
+
+            {/* Crafted by Biswas Badge */}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyber-blue/10 border border-cyber-blue/30 text-xs font-inter text-gray-200 shadow-[0_0_12px_rgba(0,240,255,0.15)] hover:border-cyber-blue/60 transition-all select-none">
+              <span className="text-gray-300">Crafted by</span>
+              <span className="font-bold text-cyber-blue font-orbitron tracking-wide">Biswas</span>
+              <Sparkles size={13} className="text-cyber-blue animate-pulse" />
+            </div>
+          </div>
+
+          {/* Secure Uplink Indicator on the Right */}
+          <div className="flex items-center gap-2 text-xs font-mono text-gray-400 bg-black/60 px-3.5 py-1.5 rounded-lg border border-white/10 shadow-inner">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]"></span>
+            <span className="tracking-wider text-[11px] sm:text-xs">
+              CONNECTION_SECURE // PORT_8080 // UPLINK_ESTABLISHED
+            </span>
           </div>
         </div>
       </div>
