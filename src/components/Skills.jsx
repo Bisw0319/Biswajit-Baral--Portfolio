@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { getSkillsData } from '../utils/portfolioStorage';
 import CyberArcadeStation from './CyberArcadeStation';
-import { Gamepad2, Sparkles } from 'lucide-react';
+import { Gamepad2 } from 'lucide-react';
 
 const Skills = () => {
   const [skillCategories, setSkillCategories] = useState(getSkillsData());
