@@ -2,7 +2,6 @@
 import {
   safeJsonParse,
   sanitizeText,
-  sanitizeFilePath,
   timingSafeEqual,
   generateSecureSessionToken,
   getClientContextHash,
@@ -14,9 +13,7 @@ import {
 import {
   isFirebaseConfigured,
   saveCloudDoc,
-  deleteCloudDoc,
   subscribeToCollection,
-  getFirebaseDb,
   setFirebaseConfig,
   getActiveFirebaseConfig
 } from './firebase';
@@ -1240,7 +1237,7 @@ export const initCloudSync = () => {
     const unsubHome = subscribeToCollection('home', (docs) => {
       const homeDoc = docs.find(d => d.id === 'main');
       if (homeDoc) {
-        const { id, updatedAt, ...rest } = homeDoc;
+        const { id: _id, updatedAt: _updatedAt, ...rest } = homeDoc;
         localStorage.setItem(HOME_KEY, JSON.stringify(rest));
         window.dispatchEvent(new Event('portfolio_data_updated'));
       }
@@ -1251,7 +1248,7 @@ export const initCloudSync = () => {
     const unsubAbout = subscribeToCollection('about', (docs) => {
       const aboutDoc = docs.find(d => d.id === 'main');
       if (aboutDoc) {
-        const { id, updatedAt, ...rest } = aboutDoc;
+        const { id: _id, updatedAt: _updatedAt, ...rest } = aboutDoc;
         localStorage.setItem(ABOUT_KEY, JSON.stringify(rest));
         window.dispatchEvent(new Event('portfolio_data_updated'));
       }
@@ -1262,7 +1259,7 @@ export const initCloudSync = () => {
     const unsubContact = subscribeToCollection('contact', (docs) => {
       const contactDoc = docs.find(d => d.id === 'main');
       if (contactDoc) {
-        const { id, updatedAt, ...rest } = contactDoc;
+        const { id: _id, updatedAt: _updatedAt, ...rest } = contactDoc;
         localStorage.setItem(CONTACT_KEY, JSON.stringify(rest));
         window.dispatchEvent(new Event('portfolio_data_updated'));
       }
@@ -1273,7 +1270,7 @@ export const initCloudSync = () => {
     const unsubResume = subscribeToCollection('resume', (docs) => {
       const resumeDoc = docs.find(d => d.id === 'main');
       if (resumeDoc) {
-        const { id, updatedAt, ...rest } = resumeDoc;
+        const { id: _id, updatedAt: _updatedAt, ...rest } = resumeDoc;
         localStorage.setItem(RESUME_KEY, JSON.stringify(rest));
         window.dispatchEvent(new Event('portfolio_data_updated'));
       }
@@ -1380,4 +1377,47 @@ export const importFullPortfolioData = (data) => {
   }
 
   return true;
+};
+
+const MESSAGES_KEY = 'portfolio_contact_messages';
+
+export const getStoredContactMessages = () => {
+  try {
+    const raw = localStorage.getItem(MESSAGES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveLocalContactMessage = (msg) => {
+  try {
+    const current = getStoredContactMessages();
+    const newEntry = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      name: msg.name || 'Anonymous',
+      email: msg.email || '',
+      message: msg.message || '',
+      receivedAt: new Date().toISOString(),
+      read: false
+    };
+    const updated = [newEntry, ...current].slice(0, 100);
+    localStorage.setItem(MESSAGES_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event('portfolio_messages_updated'));
+    return newEntry;
+  } catch {
+    return null;
+  }
+};
+
+export const deleteLocalContactMessage = (id) => {
+  try {
+    const current = getStoredContactMessages();
+    const updated = current.filter(m => m.id !== id);
+    localStorage.setItem(MESSAGES_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event('portfolio_messages_updated'));
+    return true;
+  } catch {
+    return false;
+  }
 };

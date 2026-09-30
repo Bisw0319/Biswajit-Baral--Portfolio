@@ -19,7 +19,10 @@ const safeDecode = (token) => {
     if (typeof window !== 'undefined' && typeof window.atob === 'function') {
       return window.atob(token);
     }
-    return Buffer.from(token, 'base64').toString('utf-8');
+    if (typeof globalThis !== 'undefined' && typeof globalThis.atob === 'function') {
+      return globalThis.atob(token);
+    }
+    return '';
   } catch {
     return '';
   }
@@ -181,6 +184,57 @@ export const deleteCloudDoc = async (collectionName, docId) => {
     return true;
   } catch (e) {
     console.warn(`Failed to delete cloud document ${collectionName}/${docId}:`, e);
+    return false;
+  }
+};
+
+// Read Single Cloud Document
+export const getCloudDoc = async (collectionName, docId) => {
+  const db = getFirebaseDb();
+  if (!db) return null;
+  try {
+    const docSnap = await getDoc(doc(db, collectionName, String(docId)));
+    return docSnap.exists() ? docSnap.data() : null;
+  } catch (e) {
+    console.warn(`Failed to read cloud document ${collectionName}/${docId}:`, e);
+    return null;
+  }
+};
+
+// Read Entire Cloud Collection
+export const getCloudCollection = async (collectionName) => {
+  const db = getFirebaseDb();
+  if (!db) return [];
+  try {
+    const snapshot = await getDocs(collection(db, collectionName));
+    const items = [];
+    snapshot.forEach((d) => items.push({ id: d.id, ...d.data() }));
+    return items;
+  } catch (e) {
+    console.warn(`Failed to read collection ${collectionName}:`, e);
+    return [];
+  }
+};
+
+// Save Contact Message directly to Firestore
+export const saveContactMessage = async (messageData) => {
+  const db = getFirebaseDb();
+  if (!db) return false;
+  try {
+    const id = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const docRef = doc(db, 'contact_messages', id);
+    const cleanPayload = {
+      id,
+      name: messageData.name || 'Anonymous',
+      email: messageData.email || '',
+      message: messageData.message || '',
+      receivedAt: new Date().toISOString(),
+      source: 'portfolio_contact_form'
+    };
+    await setDoc(docRef, cleanPayload);
+    return true;
+  } catch (err) {
+    console.warn("Could not save message to Firestore:", err);
     return false;
   }
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Send, 
@@ -12,10 +12,10 @@ import {
   RotateCcw 
 } from 'lucide-react';
 import AnimeCompanion from './AnimeCompanion';
-import { getContactData } from '../utils/portfolioStorage';
+import { getContactData, saveLocalContactMessage } from '../utils/portfolioStorage';
+import { saveContactMessage } from '../utils/firebase';
 import { 
   sanitizeText, 
-  validateAndSanitizeUrl, 
   checkRateLimit, 
   recordRateLimitAttempt, 
   getOrCreateCsrfToken 
@@ -195,10 +195,10 @@ const Contact = () => {
       });
       clearTimeout(timeoutId);
       const data = await response.json();
-      if (data.Status === 3 || (data.Answer && data.Answer.length === 0)) {
-        return { valid: false, message: 'The specified email domain cannot receive incoming messages.' };
+      if (data && data.Status === 3) {
+        return { valid: false, message: 'The specified email domain does not exist.' };
       }
-    } catch (error) {
+    } catch {
       // If DNS check times out or network is offline, don't block the user
     }
 
@@ -216,8 +216,8 @@ const Contact = () => {
       return;
     }
 
-    // 1. DoS / DDoS Rate Limiting Defense (Max 3 submissions per 2 mins)
-    const rateCheck = checkRateLimit('contact_form', 3, 120000);
+    // 1. DoS / DDoS Rate Limiting Defense (Max 5 submissions per 2 mins)
+    const rateCheck = checkRateLimit('contact_form', 5, 120000);
     if (!rateCheck.allowed) {
       setErrorMessage(`Transmission Throttled: ${rateCheck.message}`);
       return;
@@ -234,77 +234,78 @@ const Contact = () => {
 
     const recipient = contactData.email || "freelixir.b@gmail.com";
     
-    // 2. Comprehensive Input Sanitization (XSS, SQLi, Command Injection, Path Traversal Defense)
+    // 2. Comprehensive Input Sanitization (XSS, SQLi, Command Injection Defense)
     const payload = {
       name: sanitizeText(formData.name.trim(), 80),
       email: sanitizeText(formData.email.trim(), 100),
       message: sanitizeText(formData.message.trim(), 2000)
     };
 
-    // 3. Anti-CSRF Token Generation
-    const csrfToken = getOrCreateCsrfToken();
+    // 3. Guaranteed Layer 1: Immediately save to local storage
+    saveLocalContactMessage(payload);
 
-    // Prepare FormData payload for FormSubmit
-    const fd = new FormData();
-    fd.append('name', payload.name);
-    fd.append('email', payload.email);
-    fd.append('message', payload.message);
-    fd.append('_subject', `New Transmission from ${payload.name} [Portfolio Message.exe]`);
-    fd.append('_replyto', payload.email);
-    fd.append('_template', 'table');
-    fd.append('_captcha', 'false');
-    fd.append('_csrf_token', csrfToken);
-
-    // Record submission attempt for sliding-window rate limiting
-    recordRateLimitAttempt('contact_form', 120000);
-
-    // Use local proxy if on localhost to preserve headers, else direct FormSubmit endpoint
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const primaryUrl = isLocalhost 
-      ? `/api/formsubmit/ajax/${encodeURIComponent(recipient)}` 
-      : `https://formsubmit.co/ajax/${encodeURIComponent(recipient)}`;
-    const fallbackUrl = `https://formsubmit.co/ajax/${encodeURIComponent(recipient)}`;
-
+    // 4. Guaranteed Layer 2: Save directly to Firebase Firestore Cloud Database
+    let cloudSaved = false;
     try {
-      let response = await fetch(primaryUrl, {
+      cloudSaved = await saveContactMessage(payload);
+    } catch (err) {
+      console.warn("Cloud transmission backup error:", err);
+    }
+
+    // 5. Layer 3: Attempt Email Gateway Transmission
+    let emailRelaySent = false;
+    try {
+      const csrfToken = getOrCreateCsrfToken();
+      const fd = new FormData();
+      fd.append('name', payload.name);
+      fd.append('email', payload.email);
+      fd.append('message', payload.message);
+      fd.append('_subject', `New Transmission from ${payload.name} [Portfolio Message.exe]`);
+      fd.append('_replyto', payload.email);
+      fd.append('_template', 'table');
+      fd.append('_captcha', 'false');
+      fd.append('_csrf_token', csrfToken);
+
+      recordRateLimitAttempt('contact_form', 120000);
+
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const primaryUrl = isLocalhost 
+        ? `/api/formsubmit/ajax/${encodeURIComponent(recipient)}` 
+        : `https://formsubmit.co/ajax/${encodeURIComponent(recipient)}`;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+      const response = await fetch(primaryUrl, {
         method: "POST",
         headers: { 'Accept': 'application/json' },
-        body: fd
-      }).catch(async (fetchErr) => {
-        // Fallback to direct URL if proxy is unavailable
-        if (primaryUrl !== fallbackUrl) {
-          return await fetch(fallbackUrl, {
-            method: "POST",
-            headers: { 'Accept': 'application/json' },
-            body: fd
-          });
-        }
-        throw fetchErr;
+        body: fd,
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
-      let responseData = null;
-      try {
-        responseData = await response.json();
-      } catch (jsonErr) {}
-
-      // FormSubmit strictly returns success: "true" when dispatched
-      const isOk = response.ok && responseData && (responseData.success === 'true' || responseData.success === true);
-
-      if (isOk) {
-        setLastSentData(payload);
-        setSubmissionSuccess(true);
-        setFormData({ name: '', email: '', message: '' });
-      } else {
-        const msg = responseData?.message || `Gateway returned status ${response.status}`;
-        throw new Error(msg);
+      if (response && response.ok) {
+        const responseData = await response.json().catch(() => null);
+        if (responseData && (responseData.success === 'true' || responseData.success === true)) {
+          emailRelaySent = true;
+        }
       }
-    } catch (error) {
-      console.warn("Direct transmission relay warning:", error);
-      const errMsg = error.message || 'Network gateway blocked';
-      setErrorMessage(errMsg);
-    } finally {
-      setIsSubmitting(false);
+    } catch (relayErr) {
+      console.warn("Direct transmission relay notice:", relayErr);
     }
+
+    // 6. If cloud saved or email relayed, transmission is a total success!
+    if (cloudSaved || emailRelaySent) {
+      setLastSentData(payload);
+      setSubmissionSuccess(true);
+      setFormData({ name: '', email: '', message: '' });
+      setIsSubmitting(false);
+      return;
+    }
+
+    // 7. If completely offline
+    setIsSubmitting(false);
+    setErrorMessage('Neural Gateway is currently offline. Your transmission has been saved locally, and you can also send directly via Gmail or WhatsApp below!');
   };
 
   return (

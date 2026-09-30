@@ -599,7 +599,7 @@ const QuantumRunnerGame = () => {
         </div>
         <div className="p-2.5 rounded-xl bg-black/60 border border-white/10 flex items-center justify-between">
           <span className="text-gray-400 text-[10px] uppercase">SPEED</span>
-          <span className="text-emerald-400 font-bold text-sm">{stateRef.current.speed.toFixed(1)}x</span>
+          <span className="text-emerald-400 font-bold text-sm">{(Math.min(13, 6.5 + distance * 0.003)).toFixed(1)}x</span>
         </div>
       </div>
 

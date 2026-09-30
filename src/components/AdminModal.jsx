@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Shield, 
@@ -99,8 +99,11 @@ import {
   uploadAllLocalDataToCloud,
   exportFullPortfolioData,
   importFullPortfolioData,
-  initCloudSync
+  initCloudSync,
+  getStoredContactMessages,
+  deleteLocalContactMessage
 } from '../utils/portfolioStorage';
+import { getCloudCollection, deleteCloudDoc } from '../utils/firebase';
 
 const AdminModal = ({ isOpen, onClose }) => {
   const context = useContext(SettingsContext);
@@ -230,6 +233,48 @@ const AdminModal = ({ isOpen, onClose }) => {
   const [cloudSyncMsg, setCloudSyncMsg] = useState('');
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
 
+  // Contact Messages State
+  const [receivedMessages, setReceivedMessages] = useState([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+
+  const loadMessages = useCallback(async () => {
+    setLoadingMessages(true);
+    try {
+      const local = getStoredContactMessages();
+      let cloud = [];
+      try {
+        cloud = await getCloudCollection('contact_messages');
+      } catch (e) {
+        console.warn("Could not fetch cloud messages:", e);
+      }
+      const combined = [...local];
+      cloud.forEach(c => {
+        if (!combined.some(m => m.id === c.id || (m.email === c.email && m.receivedAt === c.receivedAt))) {
+          combined.push(c);
+        }
+      });
+      combined.sort((a, b) => new Date(b.receivedAt || 0) - new Date(a.receivedAt || 0));
+      setReceivedMessages(combined);
+    } finally {
+      setLoadingMessages(false);
+    }
+  }, []);
+
+  const handleDeleteMessage = async (msgId) => {
+    if (!window.confirm("Delete this transmission log?")) return;
+    deleteLocalContactMessage(msgId);
+    try {
+      await deleteCloudDoc('contact_messages', msgId);
+    } catch {}
+    setReceivedMessages(prev => prev.filter(m => m.id !== msgId));
+  };
+
+  useEffect(() => {
+    const handleMsgUpdate = () => loadMessages();
+    window.addEventListener('portfolio_messages_updated', handleMsgUpdate);
+    return () => window.removeEventListener('portfolio_messages_updated', handleMsgUpdate);
+  }, [loadMessages]);
+
   useEffect(() => {
     const handleStatus = () => setIsCloudConfigured(isFirebaseConfigured());
     window.addEventListener('portfolio_firebase_status_changed', handleStatus);
@@ -343,8 +388,9 @@ const AdminModal = ({ isOpen, onClose }) => {
       const r = getResumeData();
       setResumeData(r);
       setResumeButtonText(r.buttonText || 'Download CV');
+      loadMessages();
     }
-  }, [isOpen, refreshKey]);
+  }, [isOpen, refreshKey, loadMessages]);
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -3192,6 +3238,100 @@ const AdminModal = ({ isOpen, onClose }) => {
                         </div>
                       ))}
                     </div>
+                  </div>
+
+                  {/* 3. Received Contact Messages / Transmissions Inbox */}
+                  <div className="p-4 rounded-xl border border-cyber-blue/30 bg-black/50 space-y-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-white/10">
+                      <div>
+                        <h5 className="text-white font-orbitron text-xs font-bold flex items-center gap-2">
+                          <MessageSquare size={15} className="text-cyber-blue" />
+                          <span>Transmission Inbox ({receivedMessages.length})</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-cyber-blue/15 text-cyber-blue border border-cyber-blue/30 font-mono">
+                            LIVE CLOUD + LOCAL
+                          </span>
+                        </h5>
+                        <p className="text-gray-400 text-[11px] font-inter mt-0.5">
+                          Real-time incoming messages sent through portfolio Contact form (saved in Firebase Firestore & local storage).
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={loadMessages}
+                        disabled={loadingMessages}
+                        onMouseEnter={() => playHover?.()}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyber-blue/40 bg-cyber-blue/10 hover:bg-cyber-blue/20 text-cyber-blue text-xs font-orbitron cursor-pointer transition-colors"
+                      >
+                        <RotateCcw size={12} className={loadingMessages ? "animate-spin" : ""} />
+                        <span>{loadingMessages ? "Syncing..." : "Refresh Inbox"}</span>
+                      </button>
+                    </div>
+
+                    {receivedMessages.length === 0 ? (
+                      <div className="p-8 text-center border border-dashed border-white/10 rounded-xl text-gray-400 text-xs font-mono">
+                        <MessageSquare size={24} className="mx-auto mb-2 text-gray-500 opacity-60" />
+                        <div>No transmissions received yet.</div>
+                        <div className="text-[11px] text-gray-500 mt-1">
+                          When visitors or recruiters send messages via the contact form, they will appear here instantly!
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                        {receivedMessages.map((msg) => (
+                          <div 
+                            key={msg.id} 
+                            className="p-3.5 rounded-xl border border-white/10 bg-black/70 hover:border-cyber-blue/40 transition-all space-y-2"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-orbitron font-bold text-xs text-white">
+                                  {msg.name || "Anonymous"}
+                                </span>
+                                {msg.email && (
+                                  <a 
+                                    href={`mailto:${msg.email}`}
+                                    className="text-[11px] font-mono text-cyber-blue hover:underline"
+                                  >
+                                    ({msg.email})
+                                  </a>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-mono text-gray-400">
+                                  {msg.receivedAt ? new Date(msg.receivedAt).toLocaleString() : "Just now"}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteMessage(msg.id)}
+                                  className="p-1 rounded text-gray-500 hover:text-cyber-red transition-colors cursor-pointer"
+                                  title="Delete message"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </div>
+                            <p className="text-gray-200 text-xs font-mono whitespace-pre-wrap leading-relaxed bg-white/5 p-2.5 rounded-lg border border-white/5">
+                              {msg.message}
+                            </p>
+                            {msg.email && (
+                              <div className="pt-1 flex justify-end">
+                                <a
+                                  href={`mailto:${msg.email}?subject=${encodeURIComponent('Re: Portfolio Message from ' + (msg.name || 'Visitor'))}&body=${encodeURIComponent('\n\n--- Original Transmission ---\n' + msg.message)}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-cyber-blue/15 hover:bg-cyber-blue text-cyber-blue hover:text-black font-orbitron font-bold text-[10px] uppercase transition-all"
+                                >
+                                  <Mail size={11} />
+                                  <span>Reply via Email</span>
+                                  <ExternalLink size={10} />
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
