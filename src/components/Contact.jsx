@@ -261,57 +261,104 @@ const Contact = () => {
       });
     }
 
-    // 5. Layer 3: Attempt Email Gateway Transmission (FormSubmit)
+    // 5. Layer 3: Attempt Adaptive Multi-Gateway Email Transmission
+    recordRateLimitAttempt('contact_form', 120000);
+    let relayDispatched = false;
+
+    // Gateway 1 (Primary): ShipMyForm instant webhook
     try {
-      const csrfToken = getOrCreateCsrfToken();
-      const fd = new FormData();
-      fd.append('name', payload.name);
-      fd.append('email', payload.email);
-      fd.append('message', payload.message);
-      fd.append('_subject', `New Transmission from ${payload.name} [Portfolio Message.exe]`);
-      fd.append('_replyto', payload.email);
-      fd.append('_template', 'table');
-      fd.append('_captcha', 'false');
-      fd.append('_csrf_token', csrfToken);
+      const controller1 = new AbortController();
+      const timeoutId1 = setTimeout(() => controller1.abort(), 4500);
 
-      recordRateLimitAttempt('contact_form', 120000);
-
-      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      const primaryUrl = isLocalhost 
-        ? `/api/formsubmit/ajax/${encodeURIComponent(recipient)}` 
-        : `https://formsubmit.co/ajax/${encodeURIComponent(recipient)}`;
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-      const response = await fetch(primaryUrl, {
+      const smfResponse = await fetch(`https://shipmyform.com/to/${encodeURIComponent(recipient)}`, {
         method: "POST",
-        headers: { 'Accept': 'application/json' },
-        body: fd,
-        signal: controller.signal
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: payload.name,
+          email: payload.email,
+          message: payload.message,
+          _subject: `New Transmission from ${payload.name} [Portfolio Message.exe]`
+        }),
+        signal: controller1.signal
       });
-      clearTimeout(timeoutId);
+      clearTimeout(timeoutId1);
 
-      if (response && response.ok) {
-        const responseData = await response.json().catch(() => null);
-        if (!responseData || (responseData.success !== 'true' && responseData.success !== true)) {
+      if (smfResponse && smfResponse.ok) {
+        const smfData = await smfResponse.json().catch(() => null);
+        if (smfData && smfData.ok) {
+          relayDispatched = true;
+        } else {
           logGatewayError({
-            message: 'FormSubmit gateway returned non-success response',
-            details: JSON.stringify(responseData)
+            message: 'ShipMyForm returned non-ok payload',
+            details: JSON.stringify(smfData)
           });
         }
       } else {
         logGatewayError({
-          message: `FormSubmit gateway status ${response?.status || 'error'}`,
-          details: `URL: ${primaryUrl}`
+          message: `ShipMyForm gateway status ${smfResponse?.status || 'error'}`,
+          details: `Endpoint: https://shipmyform.com/to/${recipient}`
         });
       }
-    } catch (relayErr) {
-      console.warn("Direct transmission relay notice:", relayErr);
+    } catch (smfErr) {
       logGatewayError({
-        message: 'FormSubmit email relay network failure (offline or CORS)',
-        details: relayErr?.message || String(relayErr)
+        message: 'ShipMyForm gateway dispatch attempt notice',
+        details: smfErr?.message || String(smfErr)
       });
+    }
+
+    // Gateway 2 (Fallback): FormSubmit (if primary encountered an issue)
+    if (!relayDispatched) {
+      try {
+        const csrfToken = getOrCreateCsrfToken();
+        const fd = new FormData();
+        fd.append('name', payload.name);
+        fd.append('email', payload.email);
+        fd.append('message', payload.message);
+        fd.append('_subject', `New Transmission from ${payload.name} [Portfolio Message.exe]`);
+        fd.append('_replyto', payload.email);
+        fd.append('_template', 'table');
+        fd.append('_captcha', 'false');
+        fd.append('_csrf_token', csrfToken);
+
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const primaryUrl = isLocalhost 
+          ? `/api/formsubmit/ajax/${encodeURIComponent(recipient)}` 
+          : `https://formsubmit.co/ajax/${encodeURIComponent(recipient)}`;
+
+        const controller2 = new AbortController();
+        const timeoutId2 = setTimeout(() => controller2.abort(), 4000);
+
+        const response = await fetch(primaryUrl, {
+          method: "POST",
+          headers: { 'Accept': 'application/json' },
+          body: fd,
+          signal: controller2.signal
+        });
+        clearTimeout(timeoutId2);
+
+        if (response && response.ok) {
+          const responseData = await response.json().catch(() => null);
+          if (!responseData || (responseData.success !== 'true' && responseData.success !== true)) {
+            logGatewayError({
+              message: 'FormSubmit gateway returned non-success response',
+              details: JSON.stringify(responseData)
+            });
+          }
+        } else {
+          logGatewayError({
+            message: `FormSubmit gateway status ${response?.status || 'error'}`,
+            details: `URL: ${primaryUrl}`
+          });
+        }
+      } catch (relayErr) {
+        logGatewayError({
+          message: 'FormSubmit email relay network failure',
+          details: relayErr?.message || String(relayErr)
+        });
+      }
     }
 
     // 6. Message is guaranteed captured in Local Storage and attempted in Cloud & Relay.

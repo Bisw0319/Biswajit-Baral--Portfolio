@@ -3353,31 +3353,42 @@ const AdminModal = ({ isOpen, onClose }) => {
                     )}
                   </div>
 
-                  {/* 4. FormSubmit Gateway Activation & Spam Deliverability Guide */}
+                  {/* 4. Email Gateway 1-Click Activation & Deliverability Guide */}
                   <div className="p-4 rounded-xl border border-cyber-yellow/40 bg-cyber-yellow/10 space-y-3">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                       <div className="flex items-center gap-2 text-cyber-yellow font-orbitron font-bold text-xs">
                         <AlertCircle size={16} className="flex-shrink-0" />
-                        <span>ADMIN ACTION: FORMSUBMIT ACTIVATION & SPAM FOLDER GUIDE</span>
+                        <span>ADMIN ACTION: ACTIVATE EMAIL RELAY IN GMAIL SPAM / JUNK</span>
                       </div>
-                      <a
-                        href="https://mail.google.com/mail/u/0/#search/FormSubmit"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyber-yellow text-black font-orbitron font-bold text-[10px] uppercase tracking-wider hover:bg-yellow-300 transition-all cursor-pointer"
-                      >
-                        <span>Search Gmail Spam for FormSubmit</span>
-                        <ExternalLink size={11} />
-                      </a>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <a
+                          href="https://mail.google.com/mail/u/0/#spam"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyber-yellow text-black font-orbitron font-bold text-[10px] uppercase tracking-wider hover:bg-yellow-300 transition-all cursor-pointer shadow-sm"
+                        >
+                          <span>Open Gmail Spam Folder</span>
+                          <ExternalLink size={11} />
+                        </a>
+                        <a
+                          href="https://mail.google.com/mail/u/0/#search/ShipMyForm"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/60 border border-cyber-yellow/40 text-yellow-300 font-orbitron font-bold text-[10px] uppercase tracking-wider hover:bg-black transition-all cursor-pointer"
+                        >
+                          <span>Search ShipMyForm</span>
+                          <ExternalLink size={11} />
+                        </a>
+                      </div>
                     </div>
                     <p className="text-gray-300 text-xs font-mono leading-relaxed">
-                      FormSubmit sends an initial activation email that Gmail automatically places in your <strong className="text-yellow-400">SPAM / JUNK</strong> folder! Until activated, email relays may remain pending.
+                      Automated email gateways (<strong className="text-yellow-400">ShipMyForm</strong> &amp; <strong className="text-yellow-400">FormSubmit</strong>) send a 1-time activation verification email to <strong className="text-white">freelixir.b@gmail.com</strong> that Gmail automatically places into your <strong className="text-yellow-400">SPAM / JUNK</strong> folder!
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono text-gray-300 bg-black/40 p-3 rounded-lg border border-white/5">
-                      <div>1. Open Gmail &gt; <strong className="text-yellow-300">Spam folder</strong></div>
-                      <div>2. Find: <strong className="text-white">"FormSubmit: Action Required - Activate FormSubmit"</strong></div>
-                      <div>3. Click the green <strong className="text-emerald-400">"Activate Form"</strong> button</div>
-                      <div>4. Mark <strong className="text-white">"Not Spam"</strong> so all messages land in your Primary inbox</div>
+                      <div>1. Open Gmail &gt; <strong className="text-yellow-300">Spam / Junk folder</strong></div>
+                      <div>2. Open email from <strong className="text-white">ShipMyForm</strong> or <strong className="text-white">FormSubmit</strong></div>
+                      <div>3. Click the button to <strong className="text-emerald-400">"Confirm / Activate"</strong></div>
+                      <div>4. Click <strong className="text-white">"Report not spam"</strong> so all future visitor emails land in Primary Inbox</div>
                     </div>
                   </div>
 
