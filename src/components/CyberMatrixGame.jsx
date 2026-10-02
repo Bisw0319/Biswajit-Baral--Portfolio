@@ -922,6 +922,11 @@ const CyberMatrixGame = () => {
   // ==========================================
   // INPUT CONTROLS (MOUSE, TOUCH, KEYBOARD)
   // ==========================================
+  const triggerEmpRef = useRef(triggerEmp);
+  useEffect(() => {
+    triggerEmpRef.current = triggerEmp;
+  });
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       const g = gameRef.current;
@@ -932,7 +937,7 @@ const CyberMatrixGame = () => {
         soundFX.init();
       }
       if (['KeyE'].includes(e.code)) {
-        triggerEmp();
+        triggerEmpRef.current?.();
       }
     };
 

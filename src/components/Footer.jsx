@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Terminal, Sparkles } from 'lucide-react';
 
 const Footer = () => {
@@ -11,23 +12,29 @@ const Footer = () => {
       <div className="container mx-auto px-6">
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-6">
           
-          <div className="flex items-center gap-2 group cursor-pointer">
+          <button 
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('open_admin_portal'))}
+            className="flex items-center gap-2 group cursor-pointer bg-transparent border-0 p-0 text-left"
+            title="Open System Administrator Portal"
+            aria-label="Open System Administrator Portal"
+          >
             <Terminal className="text-cyber-blue group-hover:text-cyber-yellow transition-colors" size={24} />
             <span className="font-orbitron font-bold tracking-widest text-lg group-hover:neon-text-blue transition-all">
               SYS_ADMIN
             </span>
-          </div>
+          </button>
           
           <div className="flex gap-6">
-            <a href="#contact" className="text-sm font-inter text-gray-400 hover:text-cyber-blue transition-colors uppercase tracking-wider">
+            <Link to="/contact" className="text-sm font-inter text-gray-400 hover:text-cyber-blue transition-colors uppercase tracking-wider">
               Transmission
-            </a>
-            <a href="#skills" className="text-sm font-inter text-gray-400 hover:text-cyber-blue transition-colors uppercase tracking-wider">
+            </Link>
+            <Link to="/skills" className="text-sm font-inter text-gray-400 hover:text-cyber-blue transition-colors uppercase tracking-wider">
               Network
-            </a>
-            <a href="#projects" className="text-sm font-inter text-gray-400 hover:text-cyber-blue transition-colors uppercase tracking-wider">
+            </Link>
+            <Link to="/projects" className="text-sm font-inter text-gray-400 hover:text-cyber-blue transition-colors uppercase tracking-wider">
               Protocol
-            </a>
+            </Link>
           </div>
         </div>
         

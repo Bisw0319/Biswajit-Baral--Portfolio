@@ -72,7 +72,7 @@ const Hero = () => {
                   href={resumeData.url}
                   download={resumeData.fileName || "Biswajit_Baral_Resume.pdf"}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   onMouseEnter={playHover}
                   onClick={playClick}
                   className="group relative inline-flex items-center gap-2.5 px-6 sm:px-8 py-3 bg-gradient-to-r from-cyber-blue/15 to-cyber-purple/20 border-2 border-cyber-blue text-cyber-blue font-orbitron font-bold text-xs sm:text-sm tracking-widest uppercase hover:bg-cyber-blue hover:text-black transition-all duration-300 neon-border-blue hover:shadow-[0_0_25px_#00f0ff] rounded cursor-pointer"
@@ -112,7 +112,7 @@ const Hero = () => {
                       key={s.id || s.url || s.platform}
                       href={s.url}
                       target="_blank"
-                      rel="noreferrer"
+                      rel="noopener noreferrer"
                       className="text-gray-400 transition-colors duration-300"
                       whileHover={{
                         scale: 1.25,
@@ -122,6 +122,7 @@ const Hero = () => {
                       }}
                       whileTap={{ scale: 0.95 }}
                       title={s.platform}
+                      aria-label={s.platform || "Social Profile"}
                     >
                       <Icon size={28} />
                     </motion.a>
@@ -139,6 +140,7 @@ const Hero = () => {
                     }}
                     whileTap={{ scale: 0.95 }}
                     title="Send Email"
+                    aria-label="Send direct email to Biswajit Baral"
                   >
                     <Mail size={28} />
                   </motion.a>
@@ -180,7 +182,7 @@ const Hero = () => {
                 <div className="absolute inset-0 bg-gradient-to-tr from-cyber-blue/20 to-transparent z-20 pointer-events-none group-hover/avatar:opacity-0 transition-opacity" />
                 <img
                   src={homeData.profilePic || "/avatar.png"}
-                  alt="Avatar"
+                  alt={homeData.name ? `${homeData.name} - Profile Avatar` : "Biswajit Baral - Profile Avatar"}
                   className="w-full h-full object-cover rounded-full opacity-90 grayscale hover:grayscale-0 transition-all duration-700"
                   style={{ filter: 'drop-shadow(0 0 10px var(--color-cyber-blue))' }}
                 />
@@ -205,6 +207,7 @@ const Hero = () => {
           onClick={playClick}
           className="group flex flex-col items-center cursor-pointer"
           title="Proceed to About Page"
+          aria-label="Explore About Section"
         >
           <span className="text-xs text-cyber-blue font-orbitron tracking-widest uppercase mb-2 group-hover:neon-text-blue transition-all">Explore</span>
           <div className="w-px h-12 bg-gradient-to-b from-cyber-blue to-transparent"></div>

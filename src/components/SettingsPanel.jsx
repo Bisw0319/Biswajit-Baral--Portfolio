@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Settings, Volume2, VolumeX, Palette, X, Shield, Lock } from 'lucide-react';
 import { SettingsContext } from '../context/SettingsContext';
@@ -8,6 +8,15 @@ const SettingsPanel = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const { soundEnabled, setSoundEnabled, activeTheme, setActiveTheme, themes, playClick, playHover } = useContext(SettingsContext);
+
+  useEffect(() => {
+    const handleOpenAdmin = () => {
+      setIsOpen(false);
+      setIsAdminOpen(true);
+    };
+    window.addEventListener('open_admin_portal', handleOpenAdmin);
+    return () => window.removeEventListener('open_admin_portal', handleOpenAdmin);
+  }, []);
 
   return (
     <div className="fixed bottom-4 left-4 md:bottom-6 md:left-6 z-[100]">

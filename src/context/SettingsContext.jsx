@@ -1,24 +1,8 @@
-import { createContext, useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { soundEngine } from '../utils/audio';
+import { SettingsContext, THEMES } from './settingsContextDef';
 
-const THEMES = {
-  'cyber-blue': '#00f0ff',
-  'neon-pink': '#ff00ff',
-  'matrix-green': '#00ff00',
-  'solar-yellow': '#fcee0a',
-};
-
-export const SettingsContext = createContext({
-  soundEnabled: true,
-  setSoundEnabled: () => {},
-  toggleSound: () => {},
-  playHover: () => {},
-  playClick: () => {},
-  playToggle: () => {},
-  activeTheme: 'cyber-blue',
-  setActiveTheme: () => {},
-  themes: THEMES
-});
+export { SettingsContext, THEMES };
 
 export const SettingsProvider = ({ children }) => {
   const [soundEnabled, setSoundEnabled] = useState(true);

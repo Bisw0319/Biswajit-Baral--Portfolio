@@ -104,12 +104,26 @@ const Projects = () => {
                   </div>
                   <div className="flex gap-4">
                     {project.github && project.github !== "#" && (
-                      <a href={project.github} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-cyber-blue transition-colors">
+                      <a 
+                        href={project.github} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-gray-400 hover:text-cyber-blue transition-colors"
+                        title={`View ${project.title} on GitHub`}
+                        aria-label={`View ${project.title} source code on GitHub`}
+                      >
                         <FaGithub size={22} />
                       </a>
                     )}
                     {project.live && project.live !== "#" && (
-                      <a href={project.live} target="_blank" rel="noreferrer" className="text-gray-400 hover:text-cyber-yellow transition-colors">
+                      <a 
+                        href={project.live} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-gray-400 hover:text-cyber-yellow transition-colors"
+                        title={`Visit ${project.title} Live Preview`}
+                        aria-label={`Visit ${project.title} Live Preview`}
+                      >
                         <ExternalLink size={22} />
                       </a>
                     )}

@@ -280,7 +280,9 @@ const Contact = () => {
           name: payload.name,
           email: payload.email,
           message: payload.message,
-          _subject: `New Transmission from ${payload.name} [Portfolio Message.exe]`
+          _replyto: payload.email,
+          _subject: `New Transmission from ${payload.name} [Portfolio Message.exe]`,
+          _gotcha: ''
         }),
         signal: controller1.signal
       });
@@ -312,7 +314,6 @@ const Contact = () => {
     // Gateway 2 (Fallback): FormSubmit (if primary encountered an issue)
     if (!relayDispatched) {
       try {
-        const csrfToken = getOrCreateCsrfToken();
         const fd = new FormData();
         fd.append('name', payload.name);
         fd.append('email', payload.email);
@@ -321,7 +322,6 @@ const Contact = () => {
         fd.append('_replyto', payload.email);
         fd.append('_template', 'table');
         fd.append('_captcha', 'false');
-        fd.append('_csrf_token', csrfToken);
 
         const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         const primaryUrl = isLocalhost 

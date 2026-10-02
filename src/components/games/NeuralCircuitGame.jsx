@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Cpu, 
@@ -119,41 +119,8 @@ const NeuralCircuitGame = () => {
     }
   });
 
-  // Generate solvable random board
-  const generateBoard = () => {
-    circuitAudio.init();
-    const newGrid = [];
-    const tileTypes = ['straight', 'corner', 'tee', 'cross'];
-
-    for (let r = 0; r < GRID_SIZE; r++) {
-      const row = [];
-      for (let c = 0; c < GRID_SIZE; c++) {
-        const type = (r === 0 && c === 0) ? 'corner' : 
-                     (r === GRID_SIZE - 1 && c === GRID_SIZE - 1) ? 'corner' :
-                     tileTypes[Math.floor(Math.random() * tileTypes.length)];
-        
-        const rotation = Math.floor(Math.random() * 4); // 0, 1, 2, 3 (each is 90 deg)
-        row.push({
-          row: r,
-          col: c,
-          type,
-          rotation,
-          baseConns: BASE_TILES[type],
-          isPowered: false
-        });
-      }
-      newGrid.push(row);
-    }
-
-    setGrid(updatePowerNetwork(newGrid));
-    setMoves(0);
-    setTime(0);
-    setIsWon(false);
-    setIsPlaying(true);
-  };
-
   // Breadth-first search flood fill from (0,0) to energize connected nodes
-  const updatePowerNetwork = (currentGrid) => {
+  const updatePowerNetwork = useCallback((currentGrid) => {
     // Clone and reset powered
     const g = currentGrid.map(row => row.map(tile => ({ ...tile, isPowered: false })));
 
@@ -194,11 +161,44 @@ const NeuralCircuitGame = () => {
     }
 
     return g;
-  };
+  }, []);
+
+  // Generate solvable random board
+  const generateBoard = useCallback(() => {
+    circuitAudio.init();
+    const newGrid = [];
+    const tileTypes = ['straight', 'corner', 'tee', 'cross'];
+
+    for (let r = 0; r < GRID_SIZE; r++) {
+      const row = [];
+      for (let c = 0; c < GRID_SIZE; c++) {
+        const type = (r === 0 && c === 0) ? 'corner' : 
+                     (r === GRID_SIZE - 1 && c === GRID_SIZE - 1) ? 'corner' :
+                     tileTypes[Math.floor(Math.random() * tileTypes.length)];
+        
+        const rotation = Math.floor(Math.random() * 4); // 0, 1, 2, 3 (each is 90 deg)
+        row.push({
+          row: r,
+          col: c,
+          type,
+          rotation,
+          baseConns: BASE_TILES[type],
+          isPowered: false
+        });
+      }
+      newGrid.push(row);
+    }
+
+    setGrid(updatePowerNetwork(newGrid));
+    setMoves(0);
+    setTime(0);
+    setIsWon(false);
+    setIsPlaying(true);
+  }, [updatePowerNetwork]);
 
   useEffect(() => {
     generateBoard();
-  }, []);
+  }, [generateBoard]);
 
   // Timer
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
+import React, { useState, useEffect, useRef, useContext, useCallback } from 'react';
 import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Play, 
@@ -50,33 +50,33 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const isLinkActive = (path) => {
+  const isLinkActive = useCallback((path) => {
     if (path === '/') {
       return location.pathname === '/' || location.pathname === '/home';
     }
     return location.pathname.startsWith(path);
-  };
+  }, [location.pathname]);
 
-  const getCurrentIndex = () => {
+  const getCurrentIndex = useCallback(() => {
     const idx = NAV_LINKS.findIndex(l => isLinkActive(l.path));
     return idx === -1 ? 0 : idx;
-  };
+  }, [isLinkActive]);
 
-  const navigateNext = () => {
+  const navigateNext = useCallback(() => {
     try { playClick?.(); } catch {}
     const current = getCurrentIndex();
     const next = (current + 1) % NAV_LINKS.length;
     navigate(NAV_LINKS[next].path);
     setSlideProgress(0);
-  };
+  }, [getCurrentIndex, navigate, playClick]);
 
-  const navigatePrev = () => {
+  const navigatePrev = useCallback(() => {
     try { playClick?.(); } catch {}
     const current = getCurrentIndex();
     const prev = (current - 1 + NAV_LINKS.length) % NAV_LINKS.length;
     navigate(NAV_LINKS[prev].path);
     setSlideProgress(0);
-  };
+  }, [getCurrentIndex, navigate, playClick]);
 
   // 2. Auto-scroll mobile pill strip to active item
   useEffect(() => {
@@ -132,7 +132,7 @@ const Navbar = () => {
     return () => {
       if (autoSlideIntervalRef.current) clearInterval(autoSlideIntervalRef.current);
     };
-  }, [isAutoSlide, isPausedByInteraction, location.pathname]);
+  }, [isAutoSlide, isPausedByInteraction, navigateNext]);
 
   // 5. Mobile Touch Swipe Gestures
   useEffect(() => {
@@ -175,7 +175,7 @@ const Navbar = () => {
       window.removeEventListener('touchstart', handleTouchStart);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [location.pathname]);
+  }, [navigateNext, navigatePrev]);
 
   // 6. TV, Projector & Desktop Keyboard Navigation (Arrow Keys & Number Keys 1-6)
   useEffect(() => {
@@ -203,7 +203,7 @@ const Navbar = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [location.pathname]);
+  }, [navigate, navigateNext, navigatePrev, playClick]);
 
   return (
     <>

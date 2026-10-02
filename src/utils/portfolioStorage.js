@@ -37,6 +37,53 @@ const HOME_KEY = 'biswajit_home_data';
 const ABOUT_KEY = 'biswajit_about_data';
 const CONTACT_KEY = 'biswajit_contact_data';
 
+// Resilient Storage Proxy (Prevents QuotaExceededError and private-browsing crashes)
+const memStorage = new Map();
+const safeStorage = {
+  getItem: (key) => {
+    try {
+      const val = typeof window !== 'undefined' ? window.localStorage?.getItem(key) : null;
+      if (val !== null && val !== undefined) return val;
+      return memStorage.has(key) ? memStorage.get(key) : null;
+    } catch {
+      return memStorage.has(key) ? memStorage.get(key) : null;
+    }
+  },
+  setItem: (key, val) => {
+    memStorage.set(key, val);
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage?.setItem(key, val);
+      }
+      return true;
+    } catch (e) {
+      console.warn(`[SafeStorage] Write failed for "${key}" (Quota or Private mode):`, e);
+      return false;
+    }
+  },
+  removeItem: (key) => {
+    memStorage.delete(key);
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage?.removeItem(key);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  clear: () => {
+    memStorage.clear();
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage?.clear();
+      }
+    } catch {}
+  }
+};
+
+const localStorage = safeStorage;
+
 // Default Admin Credentials (Accessible by Biswajit)
 const DEFAULT_CREDS = {
   adminId: 'biswajit',

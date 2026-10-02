@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Terminal, 
@@ -196,17 +196,22 @@ const MatrixCypherGame = () => {
   };
 
   // Physical Keyboard Listener
+  const handleKeyPressRef = useRef(handleKeyPress);
+  useEffect(() => {
+    handleKeyPressRef.current = handleKeyPress;
+  });
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       const key = e.key.toUpperCase();
-      if (key === 'ENTER') handleKeyPress('ENTER');
-      else if (key === 'BACKSPACE') handleKeyPress('DEL');
-      else if (/^[A-Z]$/.test(key)) handleKeyPress(key);
+      if (key === 'ENTER') handleKeyPressRef.current?.('ENTER');
+      else if (key === 'BACKSPACE') handleKeyPressRef.current?.('DEL');
+      else if (/^[A-Z]$/.test(key)) handleKeyPressRef.current?.(key);
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentGuess, gameStatus, targetWord]);
+  }, []);
 
   // Color logic for guessed letters
   const getLetterStatus = (letter, pos, word) => {
